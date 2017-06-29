@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 class BoundRegion:
 
@@ -72,21 +73,30 @@ class BoundRegion:
 
 class Quadrant:
 
-    def __init__(self, m_list, corners):
-        self.m_list = m_list
+    def __init__(self, m_array, pos_array, corners):
+        self.m_array = m_array
+        self.pos_array = pos_array
         self.region = BoundRegion(corners)
         self.center = self.region.center
         self.mass = self.get_mass()
         self.CoM = self.get_CoM()
 
-    def get_mass():
-        pass
+    def get_mass(self):
+        total_mass = 0
+        for mass in self.m_array:
+            total_mass += mass
+        return total_mass
 
-    def get_CoM():
-        for mass in m_list:
+    def get_CoM(self):
+        """
+        ok this is really cool: center of mass equation is essentially the
+        inner product of a mass vector and a matrix of position vectors!
+        """
+        transposed_mass_array = self.m_array.T
+        return (np.dot(transposed_mass_array, self.pos_array))/self.mass
 
     def in_region(self, region):
-        return self.center
+        return region.contains(self.center)
 
 class Node:
 
@@ -129,3 +139,14 @@ def test():
     test_region.get_NW()
     test_region.get_SW()
     test_region.get_SE()
+
+    m_array = np.array([1,1,1,1])
+    pos_array = np.array([
+        [1,1,0],
+        [-1,1,0],
+        [-1,-1,0],
+        [1,-1,0]
+    ])
+    corners = np.array([[4,4],[-4,4],[-4,-4],[4,-4]])
+    test_quad = Quadrant(m_array, pos_array, corners)
+    print(test_quad.CoM)
