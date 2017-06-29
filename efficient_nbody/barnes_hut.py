@@ -98,6 +98,9 @@ class Quadrant:
     def in_region(self, region):
         return region.contains(self.center)
 
+    #def sum_CoM(self, other_quad):
+        #return ((self.mass*self.CoM) + (other_quad.mass * other_quad.CoM))/(self.mass + other_quad.mass)
+
 class Node:
 
     def __init__(self, **kwargs):
@@ -149,4 +152,5 @@ def test():
     ])
     corners = np.array([[4,4],[-4,4],[-4,-4],[4,-4]])
     test_quad = Quadrant(m_array, pos_array, corners)
-    print(test_quad.CoM)
+    print(test_quad.CoM, test_quad.center)
+    #print(test_quad.in_region(BoundRegion()))
