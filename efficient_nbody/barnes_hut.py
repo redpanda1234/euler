@@ -77,15 +77,17 @@ class Body:
     def __init__(self, m_array, pos_array, p_array, v_array, f_array, sub_bodies = []):
         self.m_array = m_array
         self.pos_array = pos_array
-
         self.pos = p_array
         self.vel = v_array
         self.frc = f_array
         self.sub_bodies = sub_bodies
+
         self.mass = self.get_mass()
         self.CoM = self.get_CoM()
 
     def get_mass(self):
+        """
+        """
         total_mass = 0
         for mass in self.m_array:
             total_mass += mass
@@ -106,6 +108,8 @@ class Body:
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
+        """
+        """
         return np.linalg.norm(self.pos - other_body.pos)
 
     def in_region(self, region):
@@ -121,19 +125,48 @@ class Body:
         pos_array = np.append(self.pos_array, other_body.pos_array)
         return Body(m_array, pos_array)
 
+class Quadtree:
 
-class Node:
+    def __init__(self, region, bodies = []):
+        """
+        """
+        self.body =
+        self.region = region
+        self.bodies = bodies
 
-    def __init__(self, **kwargs):
-       pass
+        if len(self.bodies) > 1:
 
-class Octree:
+            NE_bodies = []
+            NW_bodies = []
+            SW_bodies = []
+            SE_bodies = []
 
-    def __init__(self, m_list = []):
-        self.m_list = m_list
-        self.root = self.m_list[0]
-        self.constructor(self.root)
-        self.children = []
+            NE = region.get_NE
+            NW = region.get_NW
+            SW = region.get_SW
+            SE = region.get_SE
+
+            for body in bodies:
+                if body.in_region(NE):
+                    NE_bodies += body
+                elif body.in_region(NW):
+                    NW_bodies += body
+                elif body.in_region(SW):
+                    SW_bodies += body
+                elif body.in_region(SE):
+                    SE_bodies += body
+                else:
+                    pass
+
+            self.BH_NE = Quadtree(NE, self.NE_bodies)
+            self.BH_NW = Quadtree(NW, self.NW_bodies)
+            self.BH_SW = Quadtree(SW, self.SW_bodies)
+            self.BH_SE = Quadtree(SE, self.SE_bodies)
+
+    def insert(self, body):
+        self.bodies += body
+        self.body = self.body.sum(body)
+
 
     def constructor(root):
         pass
