@@ -2,6 +2,9 @@ import numpy as np
 import time
 import math
 
+np.seterr(all='raise')
+theta = 0.5
+
 class BoundRegion:
 
     def __init__(self, corners):
@@ -74,16 +77,18 @@ class BoundRegion:
 
 class Body:
 
-    def __init__(self, m_array, pos_array, p_array, v_array, f_array, sub_bodies = []):
+    def __init__(self, m_array = np.array([0]), pos_array = np.array([[0,0]]), v_array = np.array([0,0]), f_array = np.array([0,0]), sub_bodies = []):
         self.m_array = m_array
         self.pos_array = pos_array
-        self.pos = p_array
+
         self.vel = v_array
         self.frc = f_array
         self.sub_bodies = sub_bodies
 
         self.mass = self.get_mass()
         self.CoM = self.get_CoM()
+
+        self.pos = self.CoM
 
     def get_mass(self):
         """
@@ -99,7 +104,10 @@ class Body:
         inner product of a mass vector and a matrix of position vectors!
         """
         transposed_mass_array = self.m_array.T
-        return (np.dot(transposed_mass_array, self.pos_array))/self.mass
+        try:
+            return (np.dot(transposed_mass_array, self.pos_array))/self.mass
+        except:
+            return 0
 
     def update(self, dt):
         """
@@ -130,46 +138,51 @@ class Quadtree:
     def __init__(self, region, bodies = []):
         """
         """
-        self.body =
         self.region = region
         self.bodies = bodies
 
-        if len(self.bodies) > 1:
+        self.NE_bodies = []
+        self.NW_bodies = []
+        self.SW_bodies = []
+        self.SE_bodies = []
 
-            NE_bodies = []
-            NW_bodies = []
-            SW_bodies = []
-            SE_bodies = []
-
-            NE = region.get_NE
-            NW = region.get_NW
-            SW = region.get_SW
-            SE = region.get_SE
-
-            for body in bodies:
-                if body.in_region(NE):
-                    NE_bodies += body
-                elif body.in_region(NW):
-                    NW_bodies += body
-                elif body.in_region(SW):
-                    SW_bodies += body
-                elif body.in_region(SE):
-                    SE_bodies += body
-                else:
-                    pass
-
-            self.BH_NE = Quadtree(NE, self.NE_bodies)
-            self.BH_NW = Quadtree(NW, self.NW_bodies)
-            self.BH_SW = Quadtree(SW, self.SW_bodies)
-            self.BH_SE = Quadtree(SE, self.SE_bodies)
+        self.NE = region.get_NE
+        self.NW = region.get_NW
+        self.SW = region.get_SW
+        self.SE = region.get_SE
 
     def insert(self, body):
+        """
+        """
         self.bodies += body
-        self.body = self.body.sum(body)
 
+        try:
+            self.body = self.body.sum(body)
+        except:
+            self.body = body
 
-    def constructor(root):
-        pass
+        if body.in_region(self.NE):
+            self.NE_bodies += body
+            self.BH_NE = Quadtree(self.NE, self.NE_bodies)
+        elif body.in_region(self.NW):
+            self.NW_bodies += body
+            self.BH_NW = Quadtree(self.NW, self.NW_bodies)
+        elif body.in_region(self.SW):
+            self.SW_bodies += body
+            self.BH_SW = Quadtree(self.SW, self.SW_bodies)
+        elif body.in_region(self.SE):
+            self.SE_bodies += body
+            self.BH_SE = Quadtree(self.SE, self.SE_bodies)
+        else:
+            pass
+
+    def isFar(self, body):
+        """
+        """
+        global theta
+        s = self.region.sidelength
+        d = self.body.distance_to(body)
+        return ( ( s/d ) < theta )
 
 class n_body_system:
     """
