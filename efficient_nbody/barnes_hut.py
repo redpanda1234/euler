@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import math
 
 class BoundRegion:
 
@@ -71,13 +72,18 @@ class BoundRegion:
         print(NE,NW,SW,SE)
         return BoundRegion(((NE,NW,SW,SE)))
 
-class Quadrant:
+class Body:
 
-    def __init__(self, m_array, pos_array, corners):
+    def __init__(self, m_array, pos_array, p_array, v_array, f_array, sub_bodies = []):
         self.m_array = m_array
         self.pos_array = pos_array
-        self.region = BoundRegion(corners)
-        self.center = self.region.center
+
+        self.pos = p_array
+        self.vel = v_array
+        self.frc = f_array
+        self.sub_bodies = sub_bodies
+        #self.region = BoundRegion(corners)
+        #self.center = self.region.center
         self.mass = self.get_mass()
         self.CoM = self.get_CoM()
 
@@ -95,11 +101,28 @@ class Quadrant:
         transposed_mass_array = self.m_array.T
         return (np.dot(transposed_mass_array, self.pos_array))/self.mass
 
-    def in_region(self, region):
-        return region.contains(self.center)
+    def update(self, dt):
+        """
+        """
+        self.vel += dt * self.frc / self.mass
+        self.pos += dt * self.vel
 
-    #def sum_CoM(self, other_quad):
-        #return ((self.mass*self.CoM) + (other_quad.mass * other_quad.CoM))/(self.mass + other_quad.mass)
+    def distance_to(self, other_body):
+        return np.linalg.norm(self.pos - other_body.pos)
+
+    def in_region(self, region):
+        """
+        """
+        pass
+
+
+    def sum(self, other_body):
+        """
+        """
+        m_array = np.append(self.m_array, other_body.m_array)
+        pos_array = np.append(self.pos_array, other_body.pos_array)
+        return Body(m_array, pos_array)
+
 
 class Node:
 
