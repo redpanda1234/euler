@@ -82,8 +82,6 @@ class Body:
         self.vel = v_array
         self.frc = f_array
         self.sub_bodies = sub_bodies
-        #self.region = BoundRegion(corners)
-        #self.center = self.region.center
         self.mass = self.get_mass()
         self.CoM = self.get_CoM()
 
@@ -113,7 +111,7 @@ class Body:
     def in_region(self, region):
         """
         """
-        pass
+        return region.contains(self.CoM)
 
 
     def sum(self, other_body):
