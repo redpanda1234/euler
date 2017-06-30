@@ -2,43 +2,65 @@ import numpy as np
 import time
 import math
 
+# for drawing out resulting frames
+from Pillow import Image, ImageDraw
+
+# get numpy to actually throw errors, instead of just printing them.
 np.seterr(all='raise')
+
+# threshold s/d value for determining whether to recurse into tree
 theta = 0.5
 
 class BoundRegion:
+    """
+    BoundRegion class represents a square on the grid we're simulating over.
 
+    """
     def __init__(self, corners):
-        """ corners should be a list of 4 (x,y) numpy arrays
         """
+        Takes as input an array of 4 numpy arrays containing the (x,y) pairs
+        of corners.
+        """
+        # define the corners
         self.NE_corner, self.NW_corner, self.SW_corner, self.SE_corner = corners
 
+        # define the midpoints of the sides
         self.N = .5 * (self.NE_corner + self.NW_corner)
         self.W = .5 * (self.NW_corner + self.SW_corner)
         self.S = .5 * (self.SW_corner + self.SE_corner)
         self.E = .5 * (self.SE_corner + self.NE_corner)
 
+        # get the center of the square
         self.center = .25 * (self.N + self.W + self.S + self.E)
 
+        # store the square sidelength as an attribute
         self.get_sidelength()
 
     def get_sidelength(self):
         """
+        This method uses the points on the square to get its sidelength.
+        Maybe just do this hard-coded instead of with a method?
         """
         self.sidelength = (self.NE_corner[0] - self.NW_corner[0])
         return self.sidelength
 
     def contains(self, point):
         """
+        This method takes as input an array defining a point, and checks if the
+        point is within the borders of the region.  Returns bool.
         """
-        x,y = point
+        x,y = point # get the x and y coodinates out of the point array
+        # similarly, use the splat operator * to unpack the x,y for corners
         lower_x, lower_y, upper_x, upper_y = [*self.SW_corner, *self.NE_corner]
-        if lower_x < x and x < upper_x:
-            if lower_y < y and y < upper_y:
+        if lower_x < x and x < upper_x: # check if x in bounds
+            if lower_y < y and y < upper_y: # and check if y in bounds
                 return True
         return False
 
     def get_NE(self):
         """
+        This method returns a sub-region of the calling region, corresponding
+        to the north-east quadrant (quadrant I)
         """
         NE = self.NE_corner
         NW = self.N
@@ -49,6 +71,8 @@ class BoundRegion:
 
     def get_NW(self):
         """
+        This method returns a sub-region of the calling region, corresponding
+        to the north-west quadrant (quadrant II)
         """
         NE = self.N
         NW = self.NW_corner
@@ -59,6 +83,8 @@ class BoundRegion:
 
     def get_SW(self):
         """
+        This method returns a sub-region of the calling region, corresponding
+        to the south-west quadrant (quadrant III)
         """
         NE = self.center
         NW = self.W
@@ -68,6 +94,10 @@ class BoundRegion:
         return BoundRegion(((NE, NW, SW, SE)))
 
     def get_SE(self):
+        """
+        This method returns a sub-region of the calling region, corresponding
+        to the south-east quadrant (quadrant IV)
+        """
         NE = self.E
         NW = self.center
         SW = self.S
@@ -76,22 +106,43 @@ class BoundRegion:
         return BoundRegion(((NE,NW,SW,SE)))
 
 class Body:
-
-    def __init__(self, m_array = np.array([0]), pos_array = np.array([[0,0]]), v_array = np.array([0,0]), f_array = np.array([0,0]), sub_bodies = []):
-        self.m_array = m_array
-        self.pos_array = pos_array
+    """
+    Class body.  Can either be a single particle or correspond to a collection
+    of particles clustered as a single object (for reference as nodes by the
+    tree structure)
+    """
+    def __init__(
+            self,
+            m_array = np.array([0]),
+            pos_array = np.array([[0,0]]),
+            v_array = np.array([0,0]),
+            f_array = np.array([0,0]),
+            sub_bodies = []
+    ):
+        """
+        Body takes as input a 1 x n array of mass values, a n x 2 array of the
+        corresponding positions of said masses, a 1x2 array corresponding to the
+        velocity vector of the center of mass of the body, a 1x2 array similarly
+        corresponding to the force acting on the center of mass, and an array of
+        sub_bodies.
+        """
+        self.m_array = m_array # store discrete masses as an attribute in array
+        self.pos_array = pos_array # similarly with positions
 
         self.vel = v_array
         self.frc = f_array
         self.sub_bodies = sub_bodies
 
         self.mass = self.get_mass()
-        self.CoM = self.get_CoM()
-
-        self.pos = self.CoM
+        if self.mass != 0:
+            self.pos = self.get_CoM() # define position as center of mass
+        else:
+            self.pos = None
 
     def get_mass(self):
         """
+        This method iterates through all the constituent bodies in Body, and
+        returns the total mass.
         """
         total_mass = 0
         for mass in self.m_array:
@@ -100,59 +151,91 @@ class Body:
 
     def get_CoM(self):
         """
-        ok this is really cool: center of mass equation is essentially the
+        Ok this is really cool: center of mass equation is essentially the
         inner product of a mass vector and a matrix of position vectors!
+
+        if mass vector is row vector (which it should be), transpose it.
+
+        This method takes advantage of that, and uses it to quickly calculate
+        the center of mass of the array without
         """
-        transposed_mass_array = self.m_array.T
-        try:
-            return (np.dot(transposed_mass_array, self.pos_array))/self.mass
-        except:
-            return 0
+        transposed_mass_array = self.m_array.T # transpose the mass array
+        return (np.dot(transposed_mass_array, self.pos_array))/self.mass
+
 
     def update(self, dt):
         """
+        This method uses Euler's method to update position and velocity
+        of the body over a small time interval dt
         """
         self.vel += dt * self.frc / self.mass
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
         """
+        This method returns a tuple of the displacement in x and y between
+        the calling body (self) and the second body (other_body)
         """
-        return np.linalg.norm(self.pos - other_body.pos)
+        return (self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1])
+        #return np.linalg.norm(self.pos - other_body.pos)
 
     def in_region(self, region):
         """
+        Checks if the body is contained in the passed region
         """
-        return region.contains(self.CoM)
+        return region.contains(self.pos)
 
 
     def sum(self, other_body):
         """
+        This method merges the calling body and other_body into
+        a single object of type body, and returns it.
         """
         m_array = np.append(self.m_array, other_body.m_array)
         pos_array = np.append(self.pos_array, other_body.pos_array)
         return Body(m_array, pos_array)
 
+    def reset(self):
+        """
+        resets the force array to 0 so that forces don't pile up over
+        timesteps.
+        """
+        self.frc = np.array([0,0])
+
 class Quadtree:
 
     def __init__(self, region, bodies = []):
         """
+        Quadtree creates an object to store the Barnes-hut tree for the n-body
+        simulator.  Each node corresponds to an object of type Quadtree and its
+        corresponding region and body.  Recursive generation stops when a region
+        contains either 0 or 1 bodies.
         """
-        self.region = region
-        self.bodies = bodies
+        self.region = region # store reference to region in node
+        self.bodies = bodies #
 
-        self.NE_bodies = []
-        self.NW_bodies = []
-        self.SW_bodies = []
-        self.SE_bodies = []
+        if len(bodies) > 1: # subdivide if more than 1 body in region
 
-        self.NE = region.get_NE
-        self.NW = region.get_NW
-        self.SW = region.get_SW
-        self.SE = region.get_SE
+            self.NE = region.get_NE
+            self.NW = region.get_NW
+            self.SW = region.get_SW
+            self.SE = region.get_SE
+
+            self.NE_bodies = [body for body in bodies if body.in_region(self.NE)]
+            self.NW_bodies = [body for body in bodies if body.in_region(self.NW)]
+            self.SW_bodies = [body for body in bodies if body.in_region(self.SW)]
+            self.SE_bodies = [body for body in bodies if body.in_region(self.SE)]
+
+            self.BH_NE = Quadtree(self.NE, self.NE_bodies)
+            self.BH_NW = Quadtree(self.NW, self.NW_bodies)
+            self.BH_SW = Quadtree(self.SW, self.SW_bodies)
+            self.BH_SE = Quadtree(self.SE, self.SE_bodies)
 
     def insert(self, body):
         """
+        Inserts body into the mass array for the node, and updates the center of
+        mass accordingly.  Regenerates the corresponding subregion tree if
+        necessary
         """
         self.bodies += body
 
@@ -178,46 +261,46 @@ class Quadtree:
 
     def isFar(self, body):
         """
+        Calculates metric for determining whether or not to transverse the quadtree
+        further when calculating force.
         """
         global theta
         s = self.region.sidelength
         d = self.body.distance_to(body)
         return ( ( s/d ) < theta )
 
-class n_body_system:
+    def get_force(self, body):
+        """
+        Calculate the force that self exerts on body.  If the calling object
+        is a single particle, use simple newton's law.  Else, if it's sufficiently
+        far away, treat self like a cluster of particles stored at their center of
+        mass. If it's not, then recurse into the subtree structure and repeat.
+        """
+        if len(self.bodies) == 1 and self.body != body:
+            distance_tuple = body.distance_to(self.body)
+            numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
+            body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)])
+
+        else:
+            if self.isFar(body):
+                distance_tuple = body.distance_to(self.body)
+                numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
+                body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)])
+
+            else:
+                for subtree in [self.BH_NE, self.BH_NW, self.BH_SW, self.BH_SE]:
+                    subtree.get_force(body)
+
+
+class System:
     """
     """
+
     def __init__(self, m_list = [], threshold = .1):
         """
         """
         self.masses = m_list
         self.threshold = threshold
 
-    def get_center_of_mass(m_list):
-        """ masses should contain
-        """
-        for mass in m_list:
-            pass
-
-def test():
-    corners = np.array([np.array([1,1]), np.array([-1,1]), np.array([-1,-1]), np.array([1,-1])])
-
-    test_region = BoundRegion(corners)
-    assert test_region.contains(np.array([0,0]))
-    assert ~test_region.contains(np.array([-1,1]))
-    test_region.get_NE()
-    test_region.get_NW()
-    test_region.get_SW()
-    test_region.get_SE()
-
-    m_array = np.array([1,1,1,1])
-    pos_array = np.array([
-        [1,1,0],
-        [-1,1,0],
-        [-1,-1,0],
-        [1,-1,0]
-    ])
-    corners = np.array([[4,4],[-4,4],[-4,-4],[4,-4]])
-    test_quad = Quadrant(m_array, pos_array, corners)
-    print(test_quad.CoM, test_quad.center)
-    #print(test_quad.in_region(BoundRegion()))
+    def update(self):
+        pass
