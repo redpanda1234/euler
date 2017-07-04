@@ -2,9 +2,10 @@ import numpy as np
 import time
 import math
 import os
+import subprocess
 
 # for drawing out resulting frames
-from Pillow import Image, ImageDraw
+from PIL import Image, ImageDraw
 
 # get numpy to actually throw errors, instead of just printing them.
 np.seterr(all='raise')
@@ -305,18 +306,19 @@ class Quadtree:
                 for subtree in [self.BH_NE, self.BH_NW, self.BH_SW, self.BH_SE]:
                     subtree.get_force(body)
 
-
-
 class System:
     """
     Overall wrapper
     """
-    def __init__(self, max_t, dt, corners, m_list = [], threshold = .1):
+    def __init__(self, max_t, dt, corners, m_list = [], threshold = .1, name="test"):
         """
         masses should be passed as np arrays of [mass, [x,y], [vx,vy] ]
         """
-        os.mkdir("test")
-        os.chdir("test")
+        os.mkdir(name)
+        os.chdir(name)
+
+        self.max_t = max_t
+        self.dt = dt
 
         self.masses = m_list
         self.threshold = threshold
@@ -324,8 +326,8 @@ class System:
         self.NW = corners[1]
 
     def start(self):
-        for time in range(0, max_t, dt):
-            self.update('{:0>8}'.format( str( time ) ) )
+        for time in range(0, self.max_t, self.dt):
+            self.update('{:0>8}'.format( str( time ) ) + ".pgm" )
 
 
     def to_pixel(self, pos, width, sidelength):
@@ -344,9 +346,9 @@ class System:
         """
 
         """
-        self.masterTree = Quadtree(self.region)
+        self.masterTree = Quadtree(self.space)
 
-        canvas = Image.open(str(filename))
+        canvas = Image.new("RGB", (1920,1080))
         draw = Image.Draw(canvas)
 
         for mass in m_list:
@@ -357,7 +359,7 @@ class System:
             except TypeError:
                 pass
 
-        canvas.save(sys.stdout, "PNG")
+        canvas.save(filename, format="PNG")
 
 def parse(filename):
     """
@@ -388,7 +390,20 @@ def ingest(filename):
     star_list = data.split( "\n" )
     m_list = []
     for star in star_list:
-        for i in range(len(star)):
-            star[i] = float(star[i])
-        m_list += [ np.array( [ star[4], np.array( [ star[0], star[1] ] ), np.array( [ star[2], star[3] ] ) ] ) ]
+        if star:
+            star = star.split(" ")
+            for i in range(len(star)):
+                star[i] = float(star[i])
+                m_list += [ [ star[4], np.array( [ star[0], star[1] ] ), np.array( [ star[2], star[3] ] ) ] ]
     return m_list
+
+def test():
+    home_dir = os.getcwd()
+    #try:
+    m_list = ingest("data.txt")
+    corners = [ np.array([2.83800E06, 2.83800E06]), np.array([-2.83800E06, 2.83800E06]), np.array([-2.83800E06, -2.83800E06]), np.array([2.83800E06, -2.83800E06]) ]
+    test = System(100000, 100, corners, m_list)
+    test.start()
+    #except:
+        #os.chdir(home_dir)
+        #subprocess.run(["rm", "-rf", "test/"])
