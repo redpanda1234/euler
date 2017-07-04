@@ -105,6 +105,12 @@ class BoundRegion:
         print(NE,NW,SW,SE)
         return BoundRegion(((NE,NW,SW,SE)))
 
+    def draw(self):
+        """
+        ToDo
+        """
+        pass
+
 class Body:
     """
     Class body.  Can either be a single particle or correspond to a collection
@@ -202,6 +208,13 @@ class Body:
         """
         self.frc = np.array([0,0])
 
+    def draw(self, canvas):
+        """
+
+        """
+        pass
+
+
 class Quadtree:
 
     def __init__(self, region, bodies = []):
@@ -292,15 +305,53 @@ class Quadtree:
                     subtree.get_force(body)
 
 
+
 class System:
     """
+    Overall wrapper
     """
 
-    def __init__(self, m_list = [], threshold = .1):
+    def __init__(self, max_t, dt, corners, m_list = [], threshold = .1):
         """
+        masses should be passed as np arrays of [mass, [x,y], [vx,vy] ]
         """
         self.masses = m_list
         self.threshold = threshold
+        self.space = BoundRegion(corners)
+        self.NW = corners[1]
 
-    def update(self):
-        pass
+    def start(self):
+        for time in range(0, max_t, dt):
+            self.update('{:0>8}'.format( str( time ) ) )
+
+
+    def to_pixel(self, pos, width, sidelength):
+        """
+        width and height should be pixel values for the output image, e.g.
+        1920 x 1080.
+        """
+        if self.space.contains(pos):
+            rel_pos = pos - self.NW
+            rel_pos[1] -= 2*rel_pos[1] # flip the sign
+            rel_pos = rel_pos/sidelength
+            rel_pos *= width
+            return rel_pos
+
+    def update(self, filename):
+        """
+
+        """
+        self.masterTree = Quadtree(self.region)
+
+        for mass in m_list:
+            body = Body(np.array(mass[0]), np.array(mass[1]), np.array(mass[2]))
+            self.masterTree.insert(body)
+            canvas = Image.open(str(filename))
+            draw = Image.Draw(canvas)
+
+            try:
+                draw.point( self.to_pixel( body.pos, 1920, self.space.sidelength ) )
+            except TypeError:
+                pass
+
+#def test(10000, 100, np.array( [1000, np.array( [ ] ) ] )):
