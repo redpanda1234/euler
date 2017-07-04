@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import math
+import os
 
 # for drawing out resulting frames
 from Pillow import Image, ImageDraw
@@ -310,11 +311,13 @@ class System:
     """
     Overall wrapper
     """
-
     def __init__(self, max_t, dt, corners, m_list = [], threshold = .1):
         """
         masses should be passed as np arrays of [mass, [x,y], [vx,vy] ]
         """
+        os.mkdir("test")
+        os.chdir("test")
+
         self.masses = m_list
         self.threshold = threshold
         self.space = BoundRegion(corners)
@@ -343,15 +346,49 @@ class System:
         """
         self.masterTree = Quadtree(self.region)
 
+        canvas = Image.open(str(filename))
+        draw = Image.Draw(canvas)
+
         for mass in m_list:
             body = Body(np.array(mass[0]), np.array(mass[1]), np.array(mass[2]))
             self.masterTree.insert(body)
-            canvas = Image.open(str(filename))
-            draw = Image.Draw(canvas)
-
             try:
                 draw.point( self.to_pixel( body.pos, 1920, self.space.sidelength ) )
             except TypeError:
                 pass
 
-#def test(10000, 100, np.array( [1000, np.array( [ ] ) ] )):
+        canvas.save(sys.stdout, "PNG")
+
+def parse(filename):
+    """
+    takes as input a data file with each row of following format:
+    x_pos y_pos x_vel y_vel mass
+    yes.  It's delimited by whitespace.  aaaaaaaaaa
+
+    not super necessary probably but it works?
+    """
+    file = open(filename, 'r')
+    data = file.read()
+    to_format = data.split( "\n" )
+    to_write = ""
+    for row in to_format:
+        crap = row.split(" ")
+        crap = crap[:5]
+        to_write += " ".join(crap) + "\n"
+    file = open(filename, 'w')
+    file.write(to_write)
+
+def ingest(filename):
+    """
+    takes as input a .txt data file for galaxy data and outputs an array
+    of the format required for System.__init__
+    """
+    file = open(filename, 'r')
+    data = file.read()
+    star_list = data.split( "\n" )
+    m_list = []
+    for star in star_list:
+        for i in range(len(star)):
+            star[i] = float(star[i])
+        m_list += [ np.array( [ star[4], np.array( [ star[0], star[1] ] ), np.array( [ star[2], star[3] ] ) ] ) ]
+    return m_list
