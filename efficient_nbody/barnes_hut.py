@@ -387,9 +387,10 @@ class System:
             #print("iterating nodes")
             for node in self.masterTree.subtrees:
                 node.get_force(body)
-        print("\nupdating positions")
-        newestbar = progressbar.ProgressBar()
-        for body in newestbar(self.masterTree.bodies):
+        #print("\nupdating positions")
+        #newestbar = progressbar.ProgressBar()
+        #for body in newestbar(self.masterTree.bodies):
+        for body in self.masterTree.bodies:
             body.update(self.dt)
 
 
