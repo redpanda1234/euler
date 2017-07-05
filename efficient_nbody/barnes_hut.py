@@ -17,11 +17,10 @@ theta = 0.5
 class BoundRegion:
     """
     BoundRegion class represents a square on the grid we're simulating over.
-
     """
     def __init__(self, corners):
         """
-        Takes as input an array of 4 numpy arrays containing the (x,y) pairs
+        Takes as input an array/tuple of 4 numpy arrays containing the (x,y) pairs
         of corners.
         """
         # define the corners
@@ -37,15 +36,7 @@ class BoundRegion:
         self.center = .25 * (self.N + self.W + self.S + self.E)
 
         # store the square sidelength as an attribute
-        self.get_sidelength()
-
-    def get_sidelength(self):
-        """
-        This method uses the points on the square to get its sidelength.
-        Maybe just do this hard-coded instead of with a method?
-        """
         self.sidelength = (self.NE_corner[0] - self.NW_corner[0])
-        return self.sidelength
 
     def contains(self, point):
         """
@@ -55,8 +46,8 @@ class BoundRegion:
         x,y = point # get the x and y coodinates out of the point array
         # similarly, use the splat operator * to unpack the x,y for corners
         lower_x, lower_y, upper_x, upper_y = [*self.SW_corner, *self.NE_corner]
-        if lower_x < x and x < upper_x: # check if x in bounds
-            if lower_y < y and y < upper_y: # and check if y in bounds
+        if lower_x <= x and x <= upper_x: # check if x in bounds
+            if lower_y <= y and y <= upper_y: # and check if y in bounds
                 return True
         return False
 
@@ -65,48 +56,28 @@ class BoundRegion:
         This method returns a sub-region of the calling region, corresponding
         to the north-east quadrant (quadrant I)
         """
-        NE = self.NE_corner
-        NW = self.N
-        SW = self.center
-        SE = self.E
-        #print(NE,NW,SW,SE)
-        return BoundRegion(((NE, NW, SW, SE)))
+        return BoundRegion( ( ( self.NE_corner, self.N, self.center, self.E ) ) )
 
     def get_NW(self):
         """
         This method returns a sub-region of the calling region, corresponding
         to the north-west quadrant (quadrant II)
         """
-        NE = self.N
-        NW = self.NW_corner
-        SW = self.W
-        SE = self.center
-        #print(NE,NW,SW,SE)
-        return BoundRegion(((NE, NW, SW, SE)))
+        return BoundRegion( ( ( self.N, self.NW_corner, self.W, self.center ) ) )
 
     def get_SW(self):
         """
         This method returns a sub-region of the calling region, corresponding
         to the south-west quadrant (quadrant III)
         """
-        NE = self.center
-        NW = self.W
-        SW = self.SW_corner
-        SE = self.S
-        #print(NE,NW,SW,SE)
-        return BoundRegion(((NE, NW, SW, SE)))
+        return BoundRegion( ( ( self.center, self.W, self.SW_corner, self.S ) ) )
 
     def get_SE(self):
         """
         This method returns a sub-region of the calling region, corresponding
         to the south-east quadrant (quadrant IV)
         """
-        NE = self.E
-        NW = self.center
-        SW = self.S
-        SE = self.SE_corner
-        #print(NE,NW,SW,SE)
-        return BoundRegion(((NE,NW,SW,SE)))
+        return BoundRegion( ( ( self.E, self.center, self.S, self.SE_corner ) ) )
 
     def draw(self):
         """
@@ -168,9 +139,8 @@ class Body:
         This method takes advantage of that, and uses it to quickly calculate
         the center of mass of the array without
         """
-        #print(self.m_array.T, self.pos_array)
         transposed_mass_array = self.m_array.T # transpose the mass array
-        return (np.dot(transposed_mass_array, self.pos_array))/self.mass
+        return (np.dot( transposed_mass_array, self.pos_array ))/self.mass
 
 
     def update(self, dt):
@@ -187,7 +157,6 @@ class Body:
         the calling body (self) and the second body (other_body)
         """
         return (self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1])
-        #return np.linalg.norm(self.pos - other_body.pos)
 
     def in_region(self, region):
         """
@@ -202,7 +171,7 @@ class Body:
         a single object of type body, and returns it.
         """
         m_array = np.append(self.m_array, other_body.m_array)
-        pos_array = np.append(self.pos_array, other_body.pos_array)
+        pos_array = np.append(self.pos_array, other_body.pos_array, axis=0)
         return Body(m_array, pos_array)
 
     def reset(self):
@@ -230,21 +199,18 @@ class Quadtree:
         """
         self.region = region # store reference to region in node
         self.bodies = bodies #
-        self.subdivide()
 
-    def subdivide(self):
-        if len(self.bodies) > 1: # subdivide if more than 1 body in region
+        self.NE = self.region.get_NE()
+        self.NW = self.region.get_NW()
+        self.SW = self.region.get_SW()
+        self.SE = self.region.get_SE()
 
-            self.NE = self.region.get_NE()
-            self.NW = self.region.get_NW()
-            self.SW = self.region.get_SW()
-            self.SE = self.region.get_SE()
+        self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
+        self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
+        self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
+        self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
-            self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
-            self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
-            self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
-            self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
-
+        if len(bodies) > 1:
             self.BH_NE = Quadtree(self.NE, self.NE_bodies)
             self.BH_NW = Quadtree(self.NW, self.NW_bodies)
             self.BH_SW = Quadtree(self.SW, self.SW_bodies)
@@ -260,25 +226,25 @@ class Quadtree:
 
         try:
             self.body = self.body.sum(body)
-        except:
+        except AttributeError:
+            print('excepting')
             self.body = body
-        if len(self.bodies) > 1:
-            self.subdivide()
 
-            #if body.in_region(self.NE):
-            #    self.NE_bodies += body
-            #    self.BH_NE = Quadtree(self.NE, self.NE_bodies)
-            #elif body.in_region(self.NW):
-            #    self.NW_bodies += body
-            #    self.BH_NW = Quadtree(self.NW, self.NW_bodies)
-            #elif body.in_region(self.SW):
-            #    self.SW_bodies += body
-            #    self.BH_SW = Quadtree(self.SW, self.SW_bodies)
-            #elif body.in_region(self.SE):
-            #    self.SE_bodies += body
-            #    self.BH_SE = Quadtree(self.SE, self.SE_bodies)
-            #else:
-            #    pass
+        if len(self.bodies) > 1:
+            if body.in_region(self.NE):
+                self.NE_bodies += [body]
+                self.BH_NE = Quadtree(self.NE, self.NE_bodies)
+            elif body.in_region(self.NW):
+                self.NW_bodies += [body]
+                self.BH_NW = Quadtree(self.NW, self.NW_bodies)
+            elif body.in_region(self.SW):
+                self.SW_bodies += [body]
+                self.BH_SW = Quadtree(self.SW, self.SW_bodies)
+            elif body.in_region(self.SE):
+                self.SE_bodies += [body]
+                self.BH_SE = Quadtree(self.SE, self.SE_bodies)
+            else:
+                pass
 
     def isFar(self, body):
         """
@@ -334,41 +300,49 @@ class System:
     def start(self):
         bar = progressbar.ProgressBar()
         for time in bar(range(0, self.max_t, self.dt)):
-            self.update('{:0>8}'.format( str( time ) ) + ".pgm" )
+            self.update('{:0>8}'.format( str( time ) ) + ".png" )
 
 
     def to_pixel(self, pos, width, sidelength):
         """
-        width and height should be pixel values for the output image, e.g.
-        1920 x 1080.
+        pos should be numpy array, width should be pixel length of picture, e.g. 2000,
+        sidelength should be sidelength of the space.
         """
         if self.space.contains(pos):
-            rel_pos = pos - self.NW
-            rel_pos[1] -= 2*rel_pos[1] # flip the sign
+            #print("\n pos is", pos, "self.NW is", self.NW)
+            rel_pos = pos - self.NW #self.NW is (0,0) in PIL
+            rel_pos[1] = -1*rel_pos[1] # flip the sign
             rel_pos = rel_pos/sidelength
             rel_pos *= width
+            rel_pos = np.rint(rel_pos).astype(int)
+            #print(rel_pos)
             return rel_pos
 
     def update(self, filename):
         """
 
         """
+        #print('generating tree')
         self.masterTree = Quadtree(self.space)
+        #print('done generating tree')
 
-        canvas = Image.new("RGB", (1920,1080))
-
+        canvas = Image.new("RGB", (2000,2000))
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
-
+        bodies = []
+        draw.point( self.to_pixel( self.space.center, 2000, self.space.sidelength ), fill = (255,0,0) )
+        draw.point( self.to_pixel( self.NW, 2000, self.space.sidelength ), fill = (255,0,0) )
         for mass in bar(self.m_list):
             body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]))
             self.masterTree.insert(body)
             try:
-                draw.point( self.to_pixel( body.pos, 1920, self.space.sidelength ) )
+                draw.point( self.to_pixel( body.pos, 2000, self.space.sidelength ), fill = (245, 245, 245) )
             except TypeError:
+                print("warning: TypeError when drawing mass.")
+                print("\nbody.pos was", body.pos)
                 pass
-
         canvas.save(filename, format="PNG")
+        #for mass in
 
 def parse(filename):
     """
@@ -403,7 +377,8 @@ def ingest(filename):
             star = star.split(" ")
             for i in range(len(star)):
                 star[i] = float(star[i])
-            m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ]), np.array( [[ star[2], star[3] ]] ) ] ]
+            m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ]), np.array( [ [ star[2], star[3] ] ] ) ] ]
+    #print(m_list)
     return m_list
 
 def test():
