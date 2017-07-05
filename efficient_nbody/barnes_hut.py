@@ -233,15 +233,10 @@ class Quadtree:
         subtrees = []
 
         if len(bodies) > 1:
-            #if debug:
-            #    print("self.bodies", self.bodies)
-            #    print("self.SE_bodies", self.SE_bodies)
             if self.NE_bodies:
-                #print(self.NE_bodies)
                 self.BH_NE = Quadtree(self.NE, self.NE_bodies)
                 subtrees += [self.BH_NE]
             if self.NW_bodies:
-                #print(self.NW_bodies)
                 self.BH_NW = Quadtree(self.NW, self.NW_bodies)
                 subtrees += [self.BH_NW]
             if self.SW_bodies:
@@ -351,13 +346,11 @@ class System:
         sidelength should be sidelength of the space.
         """
         if self.space.contains(pos):
-            #print("\n pos is", pos, "self.NW is", self.NW)
             rel_pos = pos - self.NW #self.NW is (0,0) in PIL
             rel_pos[1] = -1*rel_pos[1] # flip the sign
             rel_pos = rel_pos/sidelength
             rel_pos *= width
             rel_pos = np.rint(rel_pos).astype(int)
-            #print(rel_pos)
             return rel_pos
 
     def update(self, filename):
@@ -370,30 +363,20 @@ class System:
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
 
-        print("\nconstructing tree...")
-
         for mass in bar(self.m_list):
             body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]))
             self.masterTree.insert(body)
             try:
                 draw.point( self.to_pixel( body.pos, 2000, self.space.sidelength ), fill = (245, 245, 245) )
             except TypeError:
-                #print("\n\nwarning: TypeError when drawing mass.")
-                #print("\nbody.pos was", body.pos, "\n\n")
                 pass
         canvas.save(filename, format="PNG")
         print("\ncalculating forces...")
         for body in self.masterTree.bodies:
-            #print("iterating nodes")
             for node in self.masterTree.subtrees:
                 node.get_force(body)
-        #print("\nupdating positions")
-        #newestbar = progressbar.ProgressBar()
-        #for body in newestbar(self.masterTree.bodies):
         for body in self.masterTree.bodies:
             body.update(self.dt)
-
-
 
 def parse(filename):
     """
@@ -422,15 +405,16 @@ def ingest(filename):
     file = open(filename, 'r')
     data = file.read()
     star_list = data.split( "\n" )
+    radius = star_list[1]
     m_list = []
     for star in star_list:
         if star:
             star = star.split(" ")
-            for i in range(len(star)):
+            for i in range(5):
                 star[i] = float(star[i])
             m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ]), np.array( [ [ star[2], star[3] ] ] ) ] ]
     #print(m_list)
-    return m_list
+    return (radius, m_list)
 
 def test():
     home_dir = os.getcwd()
@@ -442,3 +426,39 @@ def test():
     #except:
         #os.chdir(home_dir)
         #subprocess.run(["rm", "-rf", "test/"])
+
+def wrapper(filename):
+    """
+    Takes as input a string corresponding to the name of a file in ./rawdata/
+    and sets the parameters for the system.
+    """
+    home_dir = os.getcwd()
+    #os.mkdir("processed_data")
+    #os.chdir("processed_data")
+    #processed_dir = os.getcwd()
+    #os.chdir("..")
+    os.chdir("raw_data")
+    file = open(filename, "r")
+    data = file.read()
+    data_list = data.split( "\n" )
+    radius = float(data_list[1])
+    m_list = []
+    for star in data_list[2:]:
+        if star:
+            star = star.split(" ")
+            for i in range(5):
+                star[i] = float(star[i])
+            for i in range(5,8):
+                star[i] = int(star[i])
+            m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ] ), np.array( [ [ star[2], star[3] ] ] ), ( star[5], star[6], star[7] ) ] ]
+    os.chdir("..")
+    test_dir = home_dir + "/tests/"
+    if ~os.path.exists(test_dir):
+        os.mkdir("tests")
+    else:
+        delete = input("dir \"tests\" already exists.  Remove it? Enter yes to confirm, and any other char will cancel it.")
+    os.chdir("tests")
+    file_dir = os.getcwd() +  str(filename)
+    cd(file_dir)
+
+    os.chdir(home_dir)
