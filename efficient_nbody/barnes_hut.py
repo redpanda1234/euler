@@ -4,6 +4,7 @@ import math
 import os
 import subprocess
 import progressbar
+import sys
 
 # for drawing out resulting frames
 from PIL import Image, ImageDraw
@@ -13,6 +14,9 @@ np.seterr(all='raise')
 
 # threshold s/d value for determining whether to recurse into tree
 theta = 0.5
+
+# because I'm dumb
+sys.setrecursionlimit(1500)
 
 class BoundRegion:
     """
@@ -119,6 +123,18 @@ class Body:
         else:
             self.pos = None
 
+    def __repr__(self):
+        str_out = ""
+        str_out += "Object of type body.\n\n"
+        str_out += "Mass array:" + str( self.m_array ) + "\n"
+        str_out += "Position array:" + str( self.pos_array ) + "\n"
+        str_out += "Velocity array:" + str(self.vel) + "\n"
+        str_out += "Force on object:" + str(self.frc) + "\n"
+        str_out += "Sub-bodies contained:" + str( self.sub_bodies ) + "\n"
+        str_out += "Total mass:" + str(self.mass) + "\n"
+        str_out += "Center of mass of Body:" + str( self.pos ) + "\n"
+        return str_out
+
     def get_mass(self):
         """
         This method iterates through all the constituent bodies in Body, and
@@ -149,6 +165,7 @@ class Body:
         of the body over a small time interval dt
         """
         self.vel += dt * self.frc / self.mass
+        print(self.pos, self.vel)
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
@@ -190,7 +207,7 @@ class Body:
 
 class Quadtree:
 
-    def __init__(self, region, bodies = []):
+    def __init__(self, region, bodies = [], debug=False):
         """
         Quadtree creates an object to store the Barnes-hut tree for the n-body
         simulator.  Each node corresponds to an object of type Quadtree and its
@@ -210,11 +227,28 @@ class Quadtree:
         self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
+        subtrees = []
+
         if len(bodies) > 1:
-            self.BH_NE = Quadtree(self.NE, self.NE_bodies)
-            self.BH_NW = Quadtree(self.NW, self.NW_bodies)
-            self.BH_SW = Quadtree(self.SW, self.SW_bodies)
-            self.BH_SE = Quadtree(self.SE, self.SE_bodies)
+            #if debug:
+            #    print("self.bodies", self.bodies)
+            #    print("self.SE_bodies", self.SE_bodies)
+            if self.NE_bodies:
+                #print(self.NE_bodies)
+                self.BH_NE = Quadtree(self.NE, self.NE_bodies)
+                subtrees += [self.BH_NE]
+            if self.NW_bodies:
+                #print(self.NW_bodies)
+                self.BH_NW = Quadtree(self.NW, self.NW_bodies)
+                subtrees += [self.BH_NW]
+            if self.SW_bodies:
+                self.BH_SW = Quadtree(self.SW, self.SW_bodies)
+                subtrees += [self.BH_SW]
+            if self.SE_bodies:
+                self.BH_SE = Quadtree(self.SE, self.SE_bodies)
+                subtrees += [self.BH_SE]
+
+        self.subtrees = subtrees
 
     def insert(self, body):
         """
@@ -222,13 +256,14 @@ class Quadtree:
         mass accordingly.  Regenerates the corresponding subregion tree if
         necessary
         """
+        global node_list
         self.bodies += [body]
-
         try:
             self.body = self.body.sum(body)
         except AttributeError:
-            print('excepting')
+            print("\nWarning: AttributeError when attempting to insert body.\nThis is only a problem if it happens more than once in an iteration.")
             self.body = body
+            self.bodies = [body]
 
         if len(self.bodies) > 1:
             if body.in_region(self.NE):
@@ -245,6 +280,9 @@ class Quadtree:
                 self.BH_SE = Quadtree(self.SE, self.SE_bodies)
             else:
                 pass
+
+        if len(self.bodies) == 1:
+            pass
 
     def isFar(self, body):
         """
@@ -275,7 +313,7 @@ class Quadtree:
                 body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)])
 
             else:
-                for subtree in [self.BH_NE, self.BH_NW, self.BH_SW, self.BH_SE]:
+                for subtree in self.subtrees:
                     subtree.get_force(body)
 
 class System:
@@ -330,19 +368,31 @@ class System:
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
         bodies = []
-        draw.point( self.to_pixel( self.space.center, 2000, self.space.sidelength ), fill = (255,0,0) )
-        draw.point( self.to_pixel( self.NW, 2000, self.space.sidelength ), fill = (255,0,0) )
+        #draw.point( self.to_pixel( self.space.center, 2000, self.space.sidelength ), fill = (255,0,0) )
+        #draw.point( self.to_pixel( self.NW, 2000, self.space.sidelength ), fill = (255,0,0) )
+        print("constructing tree...")
+        body_list = []
         for mass in bar(self.m_list):
             body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]))
             self.masterTree.insert(body)
             try:
                 draw.point( self.to_pixel( body.pos, 2000, self.space.sidelength ), fill = (245, 245, 245) )
             except TypeError:
-                print("warning: TypeError when drawing mass.")
-                print("\nbody.pos was", body.pos)
+                print("\n\nwarning: TypeError when drawing mass.")
+                print("\nbody.pos was", body.pos, "\n\n")
                 pass
         canvas.save(filename, format="PNG")
-        #for mass in
+        print("calculating forces...")
+        for body in self.masterTree.bodies:
+            #print("iterating nodes")
+            for node in self.masterTree.subtrees:
+                node.get_force(body)
+        print("updating positions")
+        newestbar = progressbar.ProgressBar()
+        for body in newestbar(self.masterTree.bodies):
+            body.update(self.dt)
+
+
 
 def parse(filename):
     """
