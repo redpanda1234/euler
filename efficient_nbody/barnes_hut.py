@@ -113,9 +113,12 @@ class Body:
         self.m_array = m_array # store discrete masses as an attribute in array
         self.pos_array = pos_array # similarly with positions
 
-        self.vel = v_array
-        self.frc = f_array
         self.sub_bodies = sub_bodies
+        if self.sub_bodies:
+            self.vel = v_array
+        else:
+            self.vel = v_array[0]
+        self.frc = f_array
 
         self.mass = self.get_mass()
         if self.mass != 0:
@@ -165,7 +168,7 @@ class Body:
         of the body over a small time interval dt
         """
         self.vel += dt * self.frc / self.mass
-        print(self.pos, self.vel)
+        #print(self.pos, self.vel)
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
@@ -200,7 +203,7 @@ class Body:
 
     def draw(self, canvas):
         """
-
+        ToDo
         """
         pass
 
@@ -338,6 +341,7 @@ class System:
     def start(self):
         bar = progressbar.ProgressBar()
         for time in bar(range(0, self.max_t, self.dt)):
+            print("\ntimestep:", time, "of", self.max_t/self.dt)
             self.update('{:0>8}'.format( str( time ) ) + ".png" )
 
 
@@ -360,34 +364,30 @@ class System:
         """
 
         """
-        #print('generating tree')
         self.masterTree = Quadtree(self.space)
-        #print('done generating tree')
 
         canvas = Image.new("RGB", (2000,2000))
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
-        bodies = []
-        #draw.point( self.to_pixel( self.space.center, 2000, self.space.sidelength ), fill = (255,0,0) )
-        #draw.point( self.to_pixel( self.NW, 2000, self.space.sidelength ), fill = (255,0,0) )
-        print("constructing tree...")
-        body_list = []
+
+        print("\nconstructing tree...")
+
         for mass in bar(self.m_list):
             body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]))
             self.masterTree.insert(body)
             try:
                 draw.point( self.to_pixel( body.pos, 2000, self.space.sidelength ), fill = (245, 245, 245) )
             except TypeError:
-                print("\n\nwarning: TypeError when drawing mass.")
-                print("\nbody.pos was", body.pos, "\n\n")
+                #print("\n\nwarning: TypeError when drawing mass.")
+                #print("\nbody.pos was", body.pos, "\n\n")
                 pass
         canvas.save(filename, format="PNG")
-        print("calculating forces...")
+        print("\ncalculating forces...")
         for body in self.masterTree.bodies:
             #print("iterating nodes")
             for node in self.masterTree.subtrees:
                 node.get_force(body)
-        print("updating positions")
+        print("\nupdating positions")
         newestbar = progressbar.ProgressBar()
         for body in newestbar(self.masterTree.bodies):
             body.update(self.dt)
@@ -436,7 +436,7 @@ def test():
     #try:
     m_list = ingest("data.txt")
     corners = [ np.array([2.83800E06, 2.83800E06]), np.array([-2.83800E06, 2.83800E06]), np.array([-2.83800E06, -2.83800E06]), np.array([2.83800E06, -2.83800E06]) ]
-    test = System(100000, 100, corners, m_list)
+    test = System(100000, 1000, corners, m_list)
     test.start()
     #except:
         #os.chdir(home_dir)
