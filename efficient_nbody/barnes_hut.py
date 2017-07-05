@@ -3,6 +3,7 @@ import time
 import math
 import os
 import subprocess
+import progressbar
 
 # for drawing out resulting frames
 from PIL import Image, ImageDraw
@@ -68,7 +69,7 @@ class BoundRegion:
         NW = self.N
         SW = self.center
         SE = self.E
-        print(NE,NW,SW,SE)
+        #print(NE,NW,SW,SE)
         return BoundRegion(((NE, NW, SW, SE)))
 
     def get_NW(self):
@@ -80,7 +81,7 @@ class BoundRegion:
         NW = self.NW_corner
         SW = self.W
         SE = self.center
-        print(NE,NW,SW,SE)
+        #print(NE,NW,SW,SE)
         return BoundRegion(((NE, NW, SW, SE)))
 
     def get_SW(self):
@@ -92,7 +93,7 @@ class BoundRegion:
         NW = self.W
         SW = self.SW_corner
         SE = self.S
-        print(NE,NW,SW,SE)
+        #print(NE,NW,SW,SE)
         return BoundRegion(((NE, NW, SW, SE)))
 
     def get_SE(self):
@@ -104,7 +105,7 @@ class BoundRegion:
         NW = self.center
         SW = self.S
         SE = self.SE_corner
-        print(NE,NW,SW,SE)
+        #print(NE,NW,SW,SE)
         return BoundRegion(((NE,NW,SW,SE)))
 
     def draw(self):
@@ -167,6 +168,7 @@ class Body:
         This method takes advantage of that, and uses it to quickly calculate
         the center of mass of the array without
         """
+        #print(self.m_array.T, self.pos_array)
         transposed_mass_array = self.m_array.T # transpose the mass array
         return (np.dot(transposed_mass_array, self.pos_array))/self.mass
 
@@ -228,18 +230,20 @@ class Quadtree:
         """
         self.region = region # store reference to region in node
         self.bodies = bodies #
+        self.subdivide()
 
-        if len(bodies) > 1: # subdivide if more than 1 body in region
+    def subdivide(self):
+        if len(self.bodies) > 1: # subdivide if more than 1 body in region
 
-            self.NE = region.get_NE
-            self.NW = region.get_NW
-            self.SW = region.get_SW
-            self.SE = region.get_SE
+            self.NE = self.region.get_NE()
+            self.NW = self.region.get_NW()
+            self.SW = self.region.get_SW()
+            self.SE = self.region.get_SE()
 
-            self.NE_bodies = [body for body in bodies if body.in_region(self.NE)]
-            self.NW_bodies = [body for body in bodies if body.in_region(self.NW)]
-            self.SW_bodies = [body for body in bodies if body.in_region(self.SW)]
-            self.SE_bodies = [body for body in bodies if body.in_region(self.SE)]
+            self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
+            self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
+            self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
+            self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
             self.BH_NE = Quadtree(self.NE, self.NE_bodies)
             self.BH_NW = Quadtree(self.NW, self.NW_bodies)
@@ -252,27 +256,29 @@ class Quadtree:
         mass accordingly.  Regenerates the corresponding subregion tree if
         necessary
         """
-        self.bodies += body
+        self.bodies += [body]
 
         try:
             self.body = self.body.sum(body)
         except:
             self.body = body
+        if len(self.bodies) > 1:
+            self.subdivide()
 
-        if body.in_region(self.NE):
-            self.NE_bodies += body
-            self.BH_NE = Quadtree(self.NE, self.NE_bodies)
-        elif body.in_region(self.NW):
-            self.NW_bodies += body
-            self.BH_NW = Quadtree(self.NW, self.NW_bodies)
-        elif body.in_region(self.SW):
-            self.SW_bodies += body
-            self.BH_SW = Quadtree(self.SW, self.SW_bodies)
-        elif body.in_region(self.SE):
-            self.SE_bodies += body
-            self.BH_SE = Quadtree(self.SE, self.SE_bodies)
-        else:
-            pass
+            #if body.in_region(self.NE):
+            #    self.NE_bodies += body
+            #    self.BH_NE = Quadtree(self.NE, self.NE_bodies)
+            #elif body.in_region(self.NW):
+            #    self.NW_bodies += body
+            #    self.BH_NW = Quadtree(self.NW, self.NW_bodies)
+            #elif body.in_region(self.SW):
+            #    self.SW_bodies += body
+            #    self.BH_SW = Quadtree(self.SW, self.SW_bodies)
+            #elif body.in_region(self.SE):
+            #    self.SE_bodies += body
+            #    self.BH_SE = Quadtree(self.SE, self.SE_bodies)
+            #else:
+            #    pass
 
     def isFar(self, body):
         """
@@ -320,13 +326,14 @@ class System:
         self.max_t = max_t
         self.dt = dt
 
-        self.masses = m_list
+        self.m_list = m_list
         self.threshold = threshold
         self.space = BoundRegion(corners)
         self.NW = corners[1]
 
     def start(self):
-        for time in range(0, self.max_t, self.dt):
+        bar = progressbar.ProgressBar()
+        for time in bar(range(0, self.max_t, self.dt)):
             self.update('{:0>8}'.format( str( time ) ) + ".pgm" )
 
 
@@ -349,10 +356,12 @@ class System:
         self.masterTree = Quadtree(self.space)
 
         canvas = Image.new("RGB", (1920,1080))
-        draw = Image.Draw(canvas)
 
-        for mass in m_list:
-            body = Body(np.array(mass[0]), np.array(mass[1]), np.array(mass[2]))
+        draw = ImageDraw.Draw(canvas)
+        bar = progressbar.ProgressBar()
+
+        for mass in bar(self.m_list):
+            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]))
             self.masterTree.insert(body)
             try:
                 draw.point( self.to_pixel( body.pos, 1920, self.space.sidelength ) )
@@ -394,7 +403,7 @@ def ingest(filename):
             star = star.split(" ")
             for i in range(len(star)):
                 star[i] = float(star[i])
-                m_list += [ [ star[4], np.array( [ star[0], star[1] ] ), np.array( [ star[2], star[3] ] ) ] ]
+            m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ]), np.array( [[ star[2], star[3] ]] ) ] ]
     return m_list
 
 def test():
