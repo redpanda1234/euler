@@ -16,7 +16,7 @@ np.seterr(all='raise')
 theta = 0.5
 
 # because I'm dumb
-sys.setrecursionlimit(1500)
+sys.setrecursionlimit(500)
 
 class BoundRegion:
     """
@@ -99,8 +99,8 @@ class Body:
             self,
             m_array = np.array([0]),
             pos_array = np.array([[0,0]]),
-            v_array = np.array([0,0]),
-            f_array = np.array([0,0]),
+            v_array = np.array([0.,0.]),
+            f_array = np.array([0.,0.]),
             sub_bodies = [],
             RGB_tuple = (245,245,245)
     ):
@@ -212,7 +212,7 @@ class Body:
 
 class Quadtree:
 
-    def __init__(self, region, bodies = [], debug=False):
+    def __init__(self, region, bodies, empty=False):
         """
         Quadtree creates an object to store the Barnes-hut tree for the n-body
         simulator.  Each node corresponds to an object of type Quadtree and its
@@ -233,9 +233,8 @@ class Quadtree:
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
         subtrees = []
-        print(self.NE_bodies)
-
-        if len(bodies) > 1:
+        #self.check_bodies()
+        if len(self.bodies) > 1:
             if self.NE_bodies:
                 self.BH_NE = Quadtree(self.NE, self.NE_bodies)
                 subtrees += [self.BH_NE]
@@ -262,15 +261,15 @@ class Quadtree:
         try:
             self.body = self.body.sum(body)
         except AttributeError:
-            print("\nWarning: AttributeError when attempting to insert body.\nThis is only a problem if it happens more than once in an iteration.")
+            #print("\nWarning: AttributeError when attempting to insert body.\nThis is only a problem if it happens more than once in an iteration.")
             self.body = body
             self.bodies = [body]
 
         if len(self.bodies) > 1:
             if body.in_region(self.NE):
                 self.NE_bodies += [body]
-                print("\n\n self.bodies", self.bodies)
-                print("\n\n self.NE_bodies", self.NE_bodies)
+                #print("\n\n self.bodies", self.bodies)
+                #print("\n\n self.NE_bodies", self.NE_bodies)
                 self.BH_NE = Quadtree(self.NE, self.NE_bodies)
             elif body.in_region(self.NW):
                 self.NW_bodies += [body]
@@ -291,11 +290,14 @@ class Quadtree:
         """
         """
         for i in range( len( self.bodies ) - 1 ):
-            for j in range( i+1, len( self.bodies ) ):
-                if self.bodies[i].pos == self.bodies[j].pos:
-                    self.bodies[i] = self.bodies[i].sum(self.bodies[j])
-                    self.bodies = self.bodies[:j] + self.bodies[j+1:]
-                    j -= 1
+            for j in range( i+1, len( self.bodies ) + 1 ):
+                try:
+                    if np.array_equal(self.bodies[i].pos, self.bodies[j].pos):
+                        self.bodies[i] = self.bodies[i].sum(self.bodies[j])
+                        self.bodies = self.bodies[:j] + self.bodies[j+1:]
+                        j -= 1
+                except IndexError:
+                    pass
 
 
     def isFar(self, body):
@@ -319,13 +321,13 @@ class Quadtree:
             distance_tuple = body.distance_to(self.body)
             numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
             body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)])
-
+            return
         else:
             if self.isFar(body):
                 distance_tuple = body.distance_to(self.body)
                 numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
-                body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)])
-
+                body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)]).astype(float)
+                return
             else:
                 for subtree in self.subtrees:
                     subtree.get_force(body)
@@ -373,7 +375,9 @@ class System:
         """
 
         """
-        self.masterTree = Quadtree(self.space)
+        self.masterTree = Quadtree(self.space, [])
+        #print(self.masterTree)
+        #print(self.masterTree.bodies)
 
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
@@ -387,7 +391,6 @@ class System:
             except TypeError:
                 pass
         canvas.save(filename, format="PNG")
-        print("\ncalculating forces...")
         for body in self.masterTree.bodies:
             self.masterTree.get_force(body)
         for body in self.masterTree.bodies:
@@ -395,7 +398,7 @@ class System:
 
 
 
-def wrapper(filename, max_t = 100000, dt = 1000, im_width = 2000):
+def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 1000):
     """
     Takes as input a string corresponding to the name of a file in ./rawdata/
     and sets the parameters for the system.
