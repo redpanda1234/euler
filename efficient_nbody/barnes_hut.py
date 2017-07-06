@@ -6,6 +6,11 @@ import subprocess
 import progressbar
 import sys
 
+# for parallel processing
+from joblib import Parallel, delayed
+import multiprocessing
+
+
 # for drawing out resulting frames
 from PIL import Image, ImageDraw
 
@@ -171,10 +176,10 @@ class Body:
         of the body over a small time interval dt
         """
         #print("updating!")
-        #print(dt*self.vel)
-        #print(dt*self.frc/self.mass)
+        #print(self.vel, self.pos)
         self.vel += dt * self.frc / self.mass
         self.pos += dt * self.vel
+        #print(self.vel, self.pos)
 
     def distance_to(self, other_body):
         """
@@ -225,33 +230,29 @@ class Quadtree:
         contains either 0 or 1 bodies.
         """
         self.region = region # store reference to region in node
-        self.bodies = bodies #
-        if bodies:
-            self.body = bodies[0]
-
-        self.NE = self.region.get_NE()
+        self.NE = self.region.get_NE() # recursively get subregions
         self.NW = self.region.get_NW()
         self.SW = self.region.get_SW()
         self.SE = self.region.get_SE()
 
+        self.bodies = bodies
+        if bodies:
+            self.body = bodies[0]
         self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
         self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
         self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
-        #for body in self.bodies:
-            #if body.in_region(self.NE):
-                #print("TRUE")
-
-        #print("NE bodies", self.NE_bodies)
-        #print("NW bodies", self.NW_bodies)
-        self.subtrees = []
-
         if len(self.bodies) > 1:
             #print("constructing subtrees")
-            self.subtrees = [Quadtree(self.NE, self.NE_bodies), Quadtree(self.NW, self.NW_bodies), Quadtree(self.SW, self.SW_bodies), Quadtree(self.SE, self.SE_bodies)]
-            #print(self.subtrees)
-        #print(self, self.subtrees)
+            self.subtrees = [
+                Quadtree(self.NE, self.NE_bodies),
+                Quadtree(self.NW, self.NW_bodies),
+                Quadtree(self.SW, self.SW_bodies),
+                Quadtree(self.SE, self.SE_bodies)
+            ]
+        else:
+            self.subtrees = []
 
     def insert(self, body):
         """
@@ -264,8 +265,6 @@ class Quadtree:
             if len(self.bodies) > 1:
                 if body.in_region(self.NE):
                     self.NE_bodies += [body]
-                    #print("\n\n self.bodies", self.bodies)
-                    #print("\n\n self.NE_bodies", self.NE_bodies)
                     self.BH_NE = Quadtree(self.NE, self.NE_bodies)
                     self.subtrees[0] = self.BH_NE
                 elif body.in_region(self.NW):
@@ -285,10 +284,7 @@ class Quadtree:
         try:
             self.body = self.body.sum(body)
         except AttributeError:
-            #print("\nWarning: AttributeError when attempting to insert body.\nThis is only a problem if it happens more than once in an iteration.")
             self.body = body
-            self.bodies = [body]
-
 
     def check_bodies(self):
         """
@@ -312,7 +308,6 @@ class Quadtree:
         global theta
         s = self.region.sidelength
         d = np.linalg.norm(self.body.distance_to(body))
-        #print(s,d)
         return ( ( s/d ) < theta )
 
     def get_force(self, body):
@@ -322,8 +317,6 @@ class Quadtree:
         far away, treat self like a cluster of particles stored at their center of
         mass. If it's not, then recurse into the subtree structure and repeat.
         """
-        #print('get force')
-        #print(self.body.mass)
         if hasattr(self, "body"):
 
             if len(self.bodies) == 1 and self.body != body:
@@ -332,7 +325,6 @@ class Quadtree:
                 numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
                 net_force = numerator / distance
                 body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-                #print(body.frc)
             elif self.body == body:
                 return
             else:
@@ -342,10 +334,8 @@ class Quadtree:
                     numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
                     net_force = numerator / distance
                     body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-                    #print(body.frc)
                 else:
                     if hasattr(self, 'subtrees'):
-                        #print("else", self.subtrees)
                         for subtree in self.subtrees:
                             subtree.get_force(body)
 
@@ -367,11 +357,20 @@ class System:
         self.space = BoundRegion(corners)
         self.NW = corners[1]
 
+        body_list = []
+        for mass in self.m_list:
+            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
+            body_list.append(body)
+
+        self.masterTree = Quadtree(self.space, body_list)
+        for body in self.masterTree.bodies:
+            self.masterTree.insert(body)
+
     def start(self):
         bar = progressbar.ProgressBar()
         for time in bar(range(0, self.max_t, self.dt)):
             #print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
-            self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
+            self.update('img{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
 
     def to_pixel(self, pos, width, sidelength):
         """
@@ -393,14 +392,11 @@ class System:
         draw is an object of type PIL.ImageDraw.Draw
         """
         if hasattr(tree, "subtrees"):
-            #print(tree.subtrees)
             for subtree in tree.subtrees:
-                #print("drawing", subtree)
                 self.draw_boxes(subtree, draw)
 
         corner_1 = self.to_pixel(tree.region.NW_corner, self.im_width, self.space.sidelength)
         corner_2 = self.to_pixel(tree.region.SE_corner, self.im_width, self.space.sidelength)
-        #print(corner_1, corner_2)
         draw.rectangle(np.append(corner_1, corner_2).tolist(), outline=(0,255,0))
 
 
@@ -408,33 +404,31 @@ class System:
         """
 
         """
-        #self.masterTree = Quadtree(self.space, [])
-
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
-        bar = progressbar.ProgressBar()
-        body_list = []
-        #for mass in bar(self.m_list):
-        for mass in self.m_list:
-            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
-            body_list.append(body)
-            try:
-                draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength ), fill = body.RGB_tuple )
-            except TypeError:
-                pass
+        #bar = progressbar.ProgressBar()
+        body_list = self.masterTree.bodies
+        #for mass in self.masterTree.bodies:
+        #    body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
+        #    body_list.append(body)
+        #    try:
+        #        draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength ), fill = body.RGB_tuple )
+        #    except TypeError:
+        #        pass
         self.masterTree = Quadtree(self.space, body_list)
         for body in self.masterTree.bodies:
             self.masterTree.insert(body)
-            #print(self.masterTree.body.mass)
+            try:
+                draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
+            except TypeError:
+                pass
         for body in self.masterTree.bodies:
-            #print(self.masterTree.body.mass)
             self.masterTree.get_force(body)
-        for body in self.masterTree.bodies:
             body.update(self.dt)
         self.draw_boxes(self.masterTree, draw)
         canvas.save(filename, format="PNG")
 
-def wrapper(filename, max_t = 100000000, dt = 250000, im_width = 1000):
+def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
     """
     Takes as input a string corresponding to the name of a file in ./rawdata/
     and sets the parameters for the system.
@@ -477,7 +471,7 @@ def wrapper(filename, max_t = 100000000, dt = 250000, im_width = 1000):
         "-r", "60", # set fps to 60
         "-f", "image2", # input format (is this necessary?)
         "-s", str(im_width) + "x" + str(im_width), # set output resolution
-        "-i", "%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
+        "-i", "img%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
         "-vcodec", "libx264",
         "-crf", "25", # rate factor.  Sets output quality/speed. 18-25 good.
         "-pix_fmt", "yuv420p", # input pixel format
