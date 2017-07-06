@@ -177,8 +177,10 @@ class Body:
         """
         #print("updating!")
         #print(self.vel, self.pos)
+        #print(self.vel, self.pos)
         self.vel += dt * self.frc / self.mass
         self.pos += dt * self.vel
+        #print(self.vel, self.pos)
         #print(self.vel, self.pos)
 
     def distance_to(self, other_body):
@@ -323,7 +325,7 @@ class Quadtree:
                 distance_array = body.distance_to(self.body)
                 distance = np.linalg.norm(distance_array)
                 numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
-                net_force = numerator / distance
+                net_force = numerator / (distance**2)
                 body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
             elif self.body == body:
                 return
@@ -332,7 +334,7 @@ class Quadtree:
                     distance_array = body.distance_to(self.body)
                     distance = np.linalg.norm(distance_array)
                     numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
-                    net_force = numerator / distance
+                    net_force = numerator / (distance**2)
                     body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
                 else:
                     if hasattr(self, 'subtrees'):
@@ -367,10 +369,19 @@ class System:
             self.masterTree.insert(body)
 
     def start(self):
-        bar = progressbar.ProgressBar()
-        for time in bar(range(0, self.max_t, self.dt)):
-            #print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
-            self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
+        if type(self.dt) == int:
+            bar = progressbar.ProgressBar()
+            for time in bar(range(0, self.max_t, self.dt)):
+                #print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
+                self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
+        elif type(self.dt) == float:
+            img_num = 0
+            bar = progressbar.ProgressBar()
+            for time in bar(np.linspace(0,self.max_t, self.max_t/self.dt)):
+                self.update('{:0>8}'.format( str( img_num ) ) + ".png" )
+                img_num += 1
+        else:
+            raise TypeError("dt must be int or float.  Got" + str(type(self.dt)) + "instead.")
 
     def to_pixel(self, pos, width, sidelength):
         """
@@ -404,21 +415,27 @@ class System:
         """
 
         """
+        time.sleep(5)
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
+        canvas2 = Image.new("RGB", (self.im_width, self.im_width))
+        draw2 = ImageDraw.Draw(canvas2)
         self.masterTree = Quadtree(self.space, self.masterTree.bodies)
         for body in self.masterTree.bodies:
             self.masterTree.insert(body)
             try:
-                print("drew?")
                 draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
+                draw2.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
             except TypeError:
                 pass
         for body in self.masterTree.bodies:
+            #print(self.masterTree.bodies)
+            #print(self.space.contains(body.pos))
             self.masterTree.get_force(body)
             body.update(self.dt)
         self.draw_boxes(self.masterTree, draw)
-        canvas.save(filename, format="PNG")
+        canvas.save("boxed_"+filename, format="PNG")
+        canvas2.save(filename, format="PNG")
 
 def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
     """
@@ -470,6 +487,18 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
         filename + ".mp4"
     ]
     subprocess.run(write_command)
+    write_command_2 = [
+        "ffmpeg", # use ffmpeg to convert output images to vide
+        "-r", "60", # set fps to 60
+        "-f", "image2", # input format (is this necessary?)
+        "-s", str(im_width) + "x" + str(im_width), # set output resolution
+        "-i", "boxed_%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
+        "-vcodec", "libx264",
+        "-crf", "25", # rate factor.  Sets output quality/speed. 18-25 good.
+        "-pix_fmt", "yuv420p", # input pixel format
+        "boxed_"+filename + ".mp4"
+    ]
+    subprocess.run(write_command2)
     os.chdir(home_dir)
 
     #Current issues: self.body.mass for the system is broken.
