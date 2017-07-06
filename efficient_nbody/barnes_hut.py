@@ -125,7 +125,7 @@ class Body:
         if self.mass != 0:
             self.pos = self.get_CoM() # define position as center of mass
         else:
-            self.pos = None
+            self.pos = np.array([0,0])
 
         self.RGB_tuple = RGB_tuple
 
@@ -170,7 +170,6 @@ class Body:
         of the body over a small time interval dt
         """
         self.vel += dt * self.frc / self.mass
-        #print(self.pos, self.vel)
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
@@ -296,7 +295,7 @@ class Quadtree:
         global theta
         s = self.region.sidelength
         d = np.linalg.norm(self.body.distance_to(body))
-        print(s,d)
+        #print(s,d)
         return ( ( s/d ) < theta )
 
     def get_force(self, body):
@@ -306,14 +305,14 @@ class Quadtree:
         far away, treat self like a cluster of particles stored at their center of
         mass. If it's not, then recurse into the subtree structure and repeat.
         """
-        print('get force')
+        #print('get force')
         if len(self.bodies) == 1 and self.body != body:
             distance_array = body.distance_to(self.body)
             distance = np.linalg.norm(distance_array)
             numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
             net_force = numerator / distance
             body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-            print(body.frc)
+            #print(body.frc)
         else:
             if self.isFar(body):
                 distance_array = body.distance_to(self.body)
@@ -321,11 +320,12 @@ class Quadtree:
                 numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
                 net_force = numerator / distance
                 body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-                print(body.frc)
+                #print(body.frc)
             else:
-                print("else", self.subtrees)
-                for subtree in self.subtrees:
-                    subtree.get_force(body)
+                if hasattr(self, 'subtrees'):
+                    #print("else", self.subtrees)
+                    for subtree in self.subtrees:
+                        subtree.get_force(body)
 
 class System:
     """
@@ -371,8 +371,6 @@ class System:
 
         """
         self.masterTree = Quadtree(self.space, [])
-        #print(self.masterTree)
-        #print(self.masterTree.bodies)
 
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
@@ -396,16 +394,12 @@ class System:
         for body in self.masterTree.bodies:
             body.update(self.dt)
 
-def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 1000):
+def wrapper(filename, max_t = 100000000, dt = 250000, im_width = 1000):
     """
     Takes as input a string corresponding to the name of a file in ./rawdata/
     and sets the parameters for the system.
     """
     home_dir = os.getcwd()
-    #os.mkdir("processed_data")
-    #os.chdir("processed_data")
-    #processed_dir = os.getcwd()
-    #os.chdir("..")
     os.chdir("raw_data")
     file = open(filename, "r")
     data = file.read()
