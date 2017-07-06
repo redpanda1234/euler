@@ -221,6 +221,7 @@ class Quadtree:
         """
         self.region = region # store reference to region in node
         self.bodies = bodies #
+        self.body = Body()
 
         self.NE = self.region.get_NE()
         self.NW = self.region.get_NW()
@@ -232,23 +233,9 @@ class Quadtree:
         self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
-        subtrees = []
-        #self.check_bodies()
-        if len(self.bodies) > 1:
-            if self.NE_bodies:
-                self.BH_NE = Quadtree(self.NE, self.NE_bodies)
-                subtrees += [self.BH_NE]
-            if self.NW_bodies:
-                self.BH_NW = Quadtree(self.NW, self.NW_bodies)
-                subtrees += [self.BH_NW]
-            if self.SW_bodies:
-                self.BH_SW = Quadtree(self.SW, self.SW_bodies)
-                subtrees += [self.BH_SW]
-            if self.SE_bodies:
-                self.BH_SE = Quadtree(self.SE, self.SE_bodies)
-                subtrees += [self.BH_SE]
 
-        self.subtrees = subtrees
+        if len(self.bodies) > 1:
+            self.subtrees = [Quadtree(self.NE, self.NE_bodies), Quadtree(self.NW, self.NW_bodies), Quadtree(self.SW, self.SW_bodies), Quadtree(self.SE, self.SE_bodies)]
 
     def insert(self, body):
         """
@@ -258,6 +245,27 @@ class Quadtree:
         """
         if body not in self.bodies:
             self.bodies += [body]
+            if len(self.bodies) > 1:
+                if body.in_region(self.NE):
+                    self.NE_bodies += [body]
+                    #print("\n\n self.bodies", self.bodies)
+                    #print("\n\n self.NE_bodies", self.NE_bodies)
+                    self.BH_NE = Quadtree(self.NE, self.NE_bodies)
+                    self.subtrees[0] = self.BH_NE
+                elif body.in_region(self.NW):
+                    self.NW_bodies += [body]
+                    self.BH_NW = Quadtree(self.NW, self.NW_bodies)
+                    self.subtrees[1] = self.BH_NW
+                elif body.in_region(self.SW):
+                    self.SW_bodies += [body]
+                    self.BH_SW = Quadtree(self.SW, self.SW_bodies)
+                    self.subtrees[2] = self.BH_SW
+                elif body.in_region(self.SE):
+                    self.SE_bodies += [body]
+                    self.BH_SE = Quadtree(self.SE, self.SE_bodies)
+                    self.subtrees[3] = self.BH_SE
+                else:
+                    pass
         try:
             self.body = self.body.sum(body)
         except AttributeError:
@@ -265,26 +273,6 @@ class Quadtree:
             self.body = body
             self.bodies = [body]
 
-        if len(self.bodies) > 1:
-            if body.in_region(self.NE):
-                self.NE_bodies += [body]
-                #print("\n\n self.bodies", self.bodies)
-                #print("\n\n self.NE_bodies", self.NE_bodies)
-                self.BH_NE = Quadtree(self.NE, self.NE_bodies)
-            elif body.in_region(self.NW):
-                self.NW_bodies += [body]
-                self.BH_NW = Quadtree(self.NW, self.NW_bodies)
-            elif body.in_region(self.SW):
-                self.SW_bodies += [body]
-                self.BH_SW = Quadtree(self.SW, self.SW_bodies)
-            elif body.in_region(self.SE):
-                self.SE_bodies += [body]
-                self.BH_SE = Quadtree(self.SE, self.SE_bodies)
-            else:
-                pass
-
-        if len(self.bodies) == 1:
-            pass
 
     def check_bodies(self):
         """
@@ -308,6 +296,7 @@ class Quadtree:
         global theta
         s = self.region.sidelength
         d = np.linalg.norm(self.body.distance_to(body))
+        print(s,d)
         return ( ( s/d ) < theta )
 
     def get_force(self, body):
@@ -317,18 +306,24 @@ class Quadtree:
         far away, treat self like a cluster of particles stored at their center of
         mass. If it's not, then recurse into the subtree structure and repeat.
         """
+        print('get force')
         if len(self.bodies) == 1 and self.body != body:
-            distance_tuple = body.distance_to(self.body)
+            distance_array = body.distance_to(self.body)
+            distance = np.linalg.norm(distance_array)
             numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
-            body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)])
-            return
+            net_force = numerator / distance
+            body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
+            print(body.frc)
         else:
             if self.isFar(body):
-                distance_tuple = body.distance_to(self.body)
+                distance_array = body.distance_to(self.body)
+                distance = np.linalg.norm(distance_array)
                 numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
-                body.frc += np.array([numerator/(distance_tuple[0]**2), numerator/(distance_tuple[1]**2)]).astype(float)
-                return
+                net_force = numerator / distance
+                body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
+                print(body.frc)
             else:
+                print("else", self.subtrees)
                 for subtree in self.subtrees:
                     subtree.get_force(body)
 
@@ -383,20 +378,23 @@ class System:
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
         draw.point( [1,1], fill= (245,245,245))
+        body_list = []
         for mass in bar(self.m_list):
             body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
-            self.masterTree.insert(body)
+            body_list.append(body)
             try:
                 draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength ), fill = body.RGB_tuple )
             except TypeError:
                 pass
         canvas.save(filename, format="PNG")
+        #print(body_list)
+        self.masterTree = Quadtree(self.space, body_list)
+        for body in self.masterTree.bodies:
+            self.masterTree.insert(body)
         for body in self.masterTree.bodies:
             self.masterTree.get_force(body)
         for body in self.masterTree.bodies:
             body.update(self.dt)
-
-
 
 def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 1000):
     """
