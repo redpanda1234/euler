@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw
 np.seterr(all='raise')
 
 # threshold s/d value for determining whether to recurse into tree
-theta = 0.75
+theta = 0.5
 
 # because I'm dumb
 sys.setrecursionlimit(500)
@@ -433,9 +433,17 @@ class System:
         #print('exiting parallel job')
         for body in self.masterTree.bodies:
             self.masterTree.get_force(body)
+        momentum = np.array([0.,0.])
+        tot_mass = 0.
         for body in self.masterTree.bodies:
             body.update(self.dt)
             body.reset()
+            momentum += body.mass*body.vel
+            tot_mass += body.mass
+        CoM_vel = momentum/tot_mass
+        for body in self.masterTree.bodies:
+            body.vel -= CoM_vel
+        #print("CoM vel is", momentum/tot_mass)
         self.draw_boxes(self.masterTree, draw)
         canvas.save("boxed_"+filename, format="PNG")
         canvas2.save(filename, format="PNG")
@@ -468,9 +476,12 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
     if not os.path.exists(filename):
         os.mkdir(filename)
     else:
-        delete = input("dir \"./tests/" + str(filename) + "/\" already exists.  Remove it? Enter yes to confirm, and any other char will cancel it.")
+        delete = input("dir \"./tests/" + str(filename) + "/\" already exists.  Remove it? Enter yes to confirm, name to choose another name, and any other character to cancel.")
         if delete == "yes":
             subprocess.run(["rm", "-rf", filename+"/"])
+            os.mkdir(filename)
+        elif delete == "name":
+            filename = input("choose a new name")
             os.mkdir(filename)
         else:
             os.chdir(home_dir)
