@@ -1,5 +1,5 @@
 .DS_store
 *.mp4
 *\#*
-*/test/
+*/tests/
 *.pyc
