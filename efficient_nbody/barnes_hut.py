@@ -101,7 +101,8 @@ class Body:
             pos_array = np.array([[0,0]]),
             v_array = np.array([0,0]),
             f_array = np.array([0,0]),
-            sub_bodies = []
+            sub_bodies = [],
+            RGB_tuple = (245,245,245)
     ):
         """
         Body takes as input a 1 x n array of mass values, a n x 2 array of the
@@ -125,6 +126,8 @@ class Body:
             self.pos = self.get_CoM() # define position as center of mass
         else:
             self.pos = None
+
+        self.RGB_tuple = RGB_tuple
 
     def __repr__(self):
         str_out = ""
@@ -176,7 +179,7 @@ class Body:
         This method returns a tuple of the displacement in x and y between
         the calling body (self) and the second body (other_body)
         """
-        return (self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1])
+        return np.array([self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1]])
 
     def in_region(self, region):
         """
@@ -231,7 +234,7 @@ class Quadtree:
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
         subtrees = []
-
+        print(self.NE_bodies)
         if len(bodies) > 1:
             if self.NE_bodies:
                 self.BH_NE = Quadtree(self.NE, self.NE_bodies)
@@ -266,6 +269,8 @@ class Quadtree:
         if len(self.bodies) > 1:
             if body.in_region(self.NE):
                 self.NE_bodies += [body]
+                print("\n\n self.bodies", self.bodies)
+                print("\n\n self.NE_bodies", self.NE_bodies)
                 self.BH_NE = Quadtree(self.NE, self.NE_bodies)
             elif body.in_region(self.NW):
                 self.NW_bodies += [body]
@@ -289,7 +294,7 @@ class Quadtree:
         """
         global theta
         s = self.region.sidelength
-        d = self.body.distance_to(body)
+        d = np.linalg.norm(self.body.distance_to(body))
         return ( ( s/d ) < theta )
 
     def get_force(self, body):
@@ -318,15 +323,15 @@ class System:
     """
     Overall wrapper
     """
-    def __init__(self, max_t, dt, corners, m_list = [], threshold = .1, name="test"):
+    def __init__(self, max_t, dt, corners, m_list, im_width=2000, threshold = .1):
         """
         masses should be passed as np arrays of [mass, [x,y], [vx,vy] ]
         """
-        os.mkdir(name)
-        os.chdir(name)
 
         self.max_t = max_t
         self.dt = dt
+
+        self.im_width = im_width
 
         self.m_list = m_list
         self.threshold = threshold
@@ -336,8 +341,8 @@ class System:
     def start(self):
         bar = progressbar.ProgressBar()
         for time in bar(range(0, self.max_t, self.dt)):
-            print("\ntimestep:", time, "of", self.max_t/self.dt)
-            self.update('{:0>8}'.format( str( time ) ) + ".png" )
+            print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
+            self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
 
 
     def to_pixel(self, pos, width, sidelength):
@@ -351,6 +356,7 @@ class System:
             rel_pos = rel_pos/sidelength
             rel_pos *= width
             rel_pos = np.rint(rel_pos).astype(int)
+            rel_pos = rel_pos.tolist()
             return rel_pos
 
     def update(self, filename):
@@ -359,75 +365,27 @@ class System:
         """
         self.masterTree = Quadtree(self.space)
 
-        canvas = Image.new("RGB", (2000,2000))
+        canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
-
+        draw.point( [1,1], fill= (245,245,245))
         for mass in bar(self.m_list):
-            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]))
+            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
             self.masterTree.insert(body)
             try:
-                draw.point( self.to_pixel( body.pos, 2000, self.space.sidelength ), fill = (245, 245, 245) )
+                draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength ), fill = body.RGB_tuple )
             except TypeError:
                 pass
         canvas.save(filename, format="PNG")
         print("\ncalculating forces...")
         for body in self.masterTree.bodies:
-            for node in self.masterTree.subtrees:
-                node.get_force(body)
+            self.masterTree.get_force(body)
         for body in self.masterTree.bodies:
             body.update(self.dt)
 
-def parse(filename):
-    """
-    takes as input a data file with each row of following format:
-    x_pos y_pos x_vel y_vel mass
-    yes.  It's delimited by whitespace.  aaaaaaaaaa
 
-    not super necessary probably but it works?
-    """
-    file = open(filename, 'r')
-    data = file.read()
-    to_format = data.split( "\n" )
-    to_write = ""
-    for row in to_format:
-        crap = row.split(" ")
-        crap = crap[:5]
-        to_write += " ".join(crap) + "\n"
-    file = open(filename, 'w')
-    file.write(to_write)
 
-def ingest(filename):
-    """
-    takes as input a .txt data file for galaxy data and outputs an array
-    of the format required for System.__init__
-    """
-    file = open(filename, 'r')
-    data = file.read()
-    star_list = data.split( "\n" )
-    radius = star_list[1]
-    m_list = []
-    for star in star_list:
-        if star:
-            star = star.split(" ")
-            for i in range(5):
-                star[i] = float(star[i])
-            m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ]), np.array( [ [ star[2], star[3] ] ] ) ] ]
-    #print(m_list)
-    return (radius, m_list)
-
-def test():
-    home_dir = os.getcwd()
-    #try:
-    m_list = ingest("data.txt")
-    corners = [ np.array([2.83800E06, 2.83800E06]), np.array([-2.83800E06, 2.83800E06]), np.array([-2.83800E06, -2.83800E06]), np.array([2.83800E06, -2.83800E06]) ]
-    test = System(100000, 1000, corners, m_list)
-    test.start()
-    #except:
-        #os.chdir(home_dir)
-        #subprocess.run(["rm", "-rf", "test/"])
-
-def wrapper(filename):
+def wrapper(filename, max_t = 100000, dt = 1000, im_width = 2000):
     """
     Takes as input a string corresponding to the name of a file in ./rawdata/
     and sets the parameters for the system.
@@ -446,19 +404,39 @@ def wrapper(filename):
     for star in data_list[2:]:
         if star:
             star = star.split(" ")
+            star = [char for char in star if len(char) != 0]
             for i in range(5):
                 star[i] = float(star[i])
             for i in range(5,8):
                 star[i] = int(star[i])
             m_list += [ [ np.array( [ star[4] ] ), np.array( [ [ star[0], star[1] ] ] ), np.array( [ [ star[2], star[3] ] ] ), ( star[5], star[6], star[7] ) ] ]
     os.chdir("..")
-    test_dir = home_dir + "/tests/"
-    if ~os.path.exists(test_dir):
+    if not os.path.exists("tests"):
         os.mkdir("tests")
-    else:
-        delete = input("dir \"tests\" already exists.  Remove it? Enter yes to confirm, and any other char will cancel it.")
     os.chdir("tests")
-    file_dir = os.getcwd() +  str(filename)
-    cd(file_dir)
-
+    if not os.path.exists(filename):
+        os.mkdir(filename)
+    else:
+        delete = input("dir \"./tests/" + str(filename) + "/\" already exists.  Remove it? Enter yes to confirm, and any other char will cancel it.")
+        if delete == "yes":
+            subprocess.run(["rm", "-rf", filename+"/"])
+            os.mkdir(filename)
+        else:
+            return
+    os.chdir(filename)
+    corners = [ np.array([radius, radius]), np.array([-radius, radius]), np.array([-radius, -radius]), np.array([radius, -radius]) ]
+    simulation = System(max_t, dt, corners, m_list, im_width = im_width)
+    simulation.start()
+    write_command = [
+        "ffmpeg", # use ffmpeg to convert output images to vide
+        "-r", "60", # set fps to 60
+        "-f", "image2", # input format (is this necessary?)
+        "-s", str(im_width) + "x" + str(im_width), # set output resolution
+        "-i", "%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
+        "-vcodec", "libx264",
+        "-crf", "25", # rate factor.  Sets output quality/speed. 18-25 good.
+        "-pix_fmt", "yuv420p", # input pixel format
+        filename + ".mp4"
+    ]
+    subprocess.run(write_command)
     os.chdir(home_dir)
