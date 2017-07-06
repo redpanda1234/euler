@@ -170,6 +170,9 @@ class Body:
         This method uses Euler's method to update position and velocity
         of the body over a small time interval dt
         """
+        #print("updating!")
+        #print(dt*self.vel)
+        #print(dt*self.frc/self.mass)
         self.vel += dt * self.frc / self.mass
         self.pos += dt * self.vel
 
@@ -194,6 +197,8 @@ class Body:
         """
         m_array = np.append(self.m_array, other_body.m_array)
         pos_array = np.append(self.pos_array, other_body.pos_array, axis=0)
+        #print("summing")
+        #print(m_array, pos_array)
         return Body(m_array, pos_array)
 
     def reset(self):
@@ -221,7 +226,8 @@ class Quadtree:
         """
         self.region = region # store reference to region in node
         self.bodies = bodies #
-        self.body = Body()
+        if bodies:
+            self.body = bodies[0]
 
         self.NE = self.region.get_NE()
         self.NW = self.region.get_NW()
@@ -318,24 +324,30 @@ class Quadtree:
         """
         #print('get force')
         #print(self.body.mass)
-        if len(self.bodies) == 1 and self.body != body:
-            distance_array = body.distance_to(self.body)
-            distance = np.linalg.norm(distance_array)
-            numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
-            net_force = numerator / distance
-            body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-        else:
-            if self.isFar(body):
+        if hasattr(self, "body"):
+
+            if len(self.bodies) == 1 and self.body != body:
                 distance_array = body.distance_to(self.body)
                 distance = np.linalg.norm(distance_array)
-                numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
+                numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
                 net_force = numerator / distance
                 body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
+                #print(body.frc)
+            elif self.body == body:
+                return
             else:
-                if hasattr(self, 'subtrees'):
-                    #print("else", self.subtrees)
-                    for subtree in self.subtrees:
-                        subtree.get_force(body)
+                if self.isFar(body):
+                    distance_array = body.distance_to(self.body)
+                    distance = np.linalg.norm(distance_array)
+                    numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
+                    net_force = numerator / distance
+                    body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
+                    #print(body.frc)
+                else:
+                    if hasattr(self, 'subtrees'):
+                        #print("else", self.subtrees)
+                        for subtree in self.subtrees:
+                            subtree.get_force(body)
 
 class System:
     """
@@ -345,7 +357,6 @@ class System:
         """
         masses should be passed as np arrays of [mass, [x,y], [vx,vy] ]
         """
-
         self.max_t = max_t
         self.dt = dt
 
@@ -397,12 +408,11 @@ class System:
         """
 
         """
-        self.masterTree = Quadtree(self.space, [])
+        #self.masterTree = Quadtree(self.space, [])
 
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
         bar = progressbar.ProgressBar()
-        draw.point( [1,1], fill= (245,245,245))
         body_list = []
         #for mass in bar(self.m_list):
         for mass in self.m_list:
