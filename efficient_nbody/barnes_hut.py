@@ -477,6 +477,15 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
             return
     os.chdir(filename)
     corners = [ np.array([radius, radius]), np.array([-radius, radius]), np.array([-radius, -radius]), np.array([radius, -radius]) ]
+    tot_mass = 0
+    momentum = np.array([0.,0.])
+    for mass in m_list:
+        tot_mass += mass[0][0]
+        momentum += mass[0][0]*mass[2][0]
+    vel = momentum/tot_mass
+    for mass in m_list:
+        mass[2][0] -= vel
+    print(vel)
     simulation = System(max_t, dt, corners, m_list, im_width = im_width)
     simulation.start()
     write_command = [
