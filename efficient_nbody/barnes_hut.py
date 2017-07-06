@@ -130,15 +130,14 @@ class Body:
         self.RGB_tuple = RGB_tuple
 
     def __repr__(self):
-        str_out = ""
-        str_out += "Object of type body.\n\n"
+        str_out = "\n"
         str_out += "Mass array:" + str( self.m_array ) + "\n"
         str_out += "Position array:" + str( self.pos_array ) + "\n"
         str_out += "Velocity array:" + str(self.vel) + "\n"
         str_out += "Force on object:" + str(self.frc) + "\n"
         str_out += "Sub-bodies contained:" + str( self.sub_bodies ) + "\n"
         str_out += "Total mass:" + str(self.mass) + "\n"
-        str_out += "Center of mass of Body:" + str( self.pos ) + "\n"
+        str_out += "Center of mass of Body:" + str( self.pos )
         return str_out
 
     def get_mass(self):
@@ -235,6 +234,7 @@ class Quadtree:
 
         subtrees = []
         print(self.NE_bodies)
+
         if len(bodies) > 1:
             if self.NE_bodies:
                 self.BH_NE = Quadtree(self.NE, self.NE_bodies)
@@ -257,8 +257,8 @@ class Quadtree:
         mass accordingly.  Regenerates the corresponding subregion tree if
         necessary
         """
-        global node_list
-        self.bodies += [body]
+        if body not in self.bodies:
+            self.bodies += [body]
         try:
             self.body = self.body.sum(body)
         except AttributeError:
@@ -286,6 +286,17 @@ class Quadtree:
 
         if len(self.bodies) == 1:
             pass
+
+    def check_bodies(self):
+        """
+        """
+        for i in range( len( self.bodies ) - 1 ):
+            for j in range( i+1, len( self.bodies ) ):
+                if self.bodies[i].pos == self.bodies[j].pos:
+                    self.bodies[i] = self.bodies[i].sum(self.bodies[j])
+                    self.bodies = self.bodies[:j] + self.bodies[j+1:]
+                    j -= 1
+
 
     def isFar(self, body):
         """
@@ -343,7 +354,6 @@ class System:
         for time in bar(range(0, self.max_t, self.dt)):
             print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
             self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
-
 
     def to_pixel(self, pos, width, sidelength):
         """
