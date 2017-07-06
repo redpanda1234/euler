@@ -83,10 +83,11 @@ class BoundRegion:
         """
         return BoundRegion( ( ( self.E, self.center, self.S, self.SE_corner ) ) )
 
-    def draw(self):
+    def draw(self, canvas):
         """
         ToDo
         """
+
         pass
 
 class Body:
@@ -202,7 +203,7 @@ class Body:
         """
         self.frc = np.array([0,0])
 
-    def draw(self, canvas):
+    def draw(self, draw):
         """
         ToDo
         """
@@ -232,9 +233,19 @@ class Quadtree:
         self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
+        #for body in self.bodies:
+            #if body.in_region(self.NE):
+                #print("TRUE")
+
+        #print("NE bodies", self.NE_bodies)
+        #print("NW bodies", self.NW_bodies)
+        self.subtrees = []
 
         if len(self.bodies) > 1:
+            #print("constructing subtrees")
             self.subtrees = [Quadtree(self.NE, self.NE_bodies), Quadtree(self.NW, self.NW_bodies), Quadtree(self.SW, self.SW_bodies), Quadtree(self.SE, self.SE_bodies)]
+            #print(self.subtrees)
+        #print(self, self.subtrees)
 
     def insert(self, body):
         """
@@ -306,13 +317,13 @@ class Quadtree:
         mass. If it's not, then recurse into the subtree structure and repeat.
         """
         #print('get force')
+        #print(self.body.mass)
         if len(self.bodies) == 1 and self.body != body:
             distance_array = body.distance_to(self.body)
             distance = np.linalg.norm(distance_array)
             numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
             net_force = numerator / distance
             body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-            #print(body.frc)
         else:
             if self.isFar(body):
                 distance_array = body.distance_to(self.body)
@@ -320,7 +331,6 @@ class Quadtree:
                 numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
                 net_force = numerator / distance
                 body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-                #print(body.frc)
             else:
                 if hasattr(self, 'subtrees'):
                     #print("else", self.subtrees)
@@ -349,7 +359,7 @@ class System:
     def start(self):
         bar = progressbar.ProgressBar()
         for time in bar(range(0, self.max_t, self.dt)):
-            print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
+            #print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
             self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
 
     def to_pixel(self, pos, width, sidelength):
@@ -357,6 +367,7 @@ class System:
         pos should be numpy array, width should be pixel length of picture, e.g. 2000,
         sidelength should be sidelength of the space.
         """
+        width -= 1 # off-by-one error
         if self.space.contains(pos):
             rel_pos = pos - self.NW #self.NW is (0,0) in PIL
             rel_pos[1] = -1*rel_pos[1] # flip the sign
@@ -365,6 +376,22 @@ class System:
             rel_pos = np.rint(rel_pos).astype(int)
             rel_pos = rel_pos.tolist()
             return rel_pos
+
+    def draw_boxes(self, tree, draw):
+        """
+        draw is an object of type PIL.ImageDraw.Draw
+        """
+        if hasattr(tree, "subtrees"):
+            #print(tree.subtrees)
+            for subtree in tree.subtrees:
+                #print("drawing", subtree)
+                self.draw_boxes(subtree, draw)
+
+        corner_1 = self.to_pixel(tree.region.NW_corner, self.im_width, self.space.sidelength)
+        corner_2 = self.to_pixel(tree.region.SE_corner, self.im_width, self.space.sidelength)
+        #print(corner_1, corner_2)
+        draw.rectangle(np.append(corner_1, corner_2).tolist(), outline=(0,255,0))
+
 
     def update(self, filename):
         """
@@ -377,22 +404,25 @@ class System:
         bar = progressbar.ProgressBar()
         draw.point( [1,1], fill= (245,245,245))
         body_list = []
-        for mass in bar(self.m_list):
+        #for mass in bar(self.m_list):
+        for mass in self.m_list:
             body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
             body_list.append(body)
             try:
                 draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength ), fill = body.RGB_tuple )
             except TypeError:
                 pass
-        canvas.save(filename, format="PNG")
-        #print(body_list)
         self.masterTree = Quadtree(self.space, body_list)
         for body in self.masterTree.bodies:
             self.masterTree.insert(body)
+            #print(self.masterTree.body.mass)
         for body in self.masterTree.bodies:
+            #print(self.masterTree.body.mass)
             self.masterTree.get_force(body)
         for body in self.masterTree.bodies:
             body.update(self.dt)
+        self.draw_boxes(self.masterTree, draw)
+        canvas.save(filename, format="PNG")
 
 def wrapper(filename, max_t = 100000000, dt = 250000, im_width = 1000):
     """
@@ -445,3 +475,7 @@ def wrapper(filename, max_t = 100000000, dt = 250000, im_width = 1000):
     ]
     subprocess.run(write_command)
     os.chdir(home_dir)
+
+    #Current issues: self.body.mass for the system is broken.
+    # once you have an imagewriting matpolotlib
+    # parallel wrapping of loop
