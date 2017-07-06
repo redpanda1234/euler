@@ -10,6 +10,8 @@ import sys
 from joblib import Parallel, delayed
 import multiprocessing
 
+# for multithreading
+num_cores = multiprocessing.cpu_count()
 
 # for drawing out resulting frames
 from PIL import Image, ImageDraw
@@ -18,7 +20,7 @@ from PIL import Image, ImageDraw
 np.seterr(all='raise')
 
 # threshold s/d value for determining whether to recurse into tree
-theta = 0.5
+theta = 0.75
 
 # because I'm dumb
 sys.setrecursionlimit(500)
@@ -175,13 +177,9 @@ class Body:
         This method uses Euler's method to update position and velocity
         of the body over a small time interval dt
         """
-        #print("updating!")
-        #print(self.vel, self.pos)
-        #print(self.vel, self.pos)
-        self.vel += dt * self.frc / self.mass
+
+        self.vel += dt * self.frc / self.mass # leapfrog finite diff
         self.pos += dt * self.vel
-        #print(self.vel, self.pos)
-        #print(self.vel, self.pos)
 
     def distance_to(self, other_body):
         """
@@ -204,16 +202,16 @@ class Body:
         """
         m_array = np.append(self.m_array, other_body.m_array)
         pos_array = np.append(self.pos_array, other_body.pos_array, axis=0)
-        #print("summing")
-        #print(m_array, pos_array)
-        return Body(m_array, pos_array)
+        vel_array = (self.vel*self.mass + other_body.vel*other_body.mass)/(self.mass+other_body.mass)
+
+        return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array)
 
     def reset(self):
         """
         resets the force array to 0 so that forces don't pile up over
         timesteps.
         """
-        self.frc = np.array([0,0])
+        self.frc = np.array([0.,0.])
 
     def draw(self, draw):
         """
@@ -246,7 +244,6 @@ class Quadtree:
         self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
 
         if len(self.bodies) > 1:
-            #print("constructing subtrees")
             self.subtrees = [
                 Quadtree(self.NE, self.NE_bodies),
                 Quadtree(self.NW, self.NW_bodies),
@@ -320,13 +317,12 @@ class Quadtree:
         mass. If it's not, then recurse into the subtree structure and repeat.
         """
         if hasattr(self, "body"):
-
             if len(self.bodies) == 1 and self.body != body:
                 distance_array = body.distance_to(self.body)
                 distance = np.linalg.norm(distance_array)
                 numerator = ( -6.67 * ( 10 ** ( -11 ) ) * self.body.mass * body.mass)
                 net_force = numerator / (distance**2)
-                body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
+                body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance]) # poor man's trig
             elif self.body == body:
                 return
             else:
@@ -336,6 +332,7 @@ class Quadtree:
                     numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
                     net_force = numerator / (distance**2)
                     body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
+
                 else:
                     if hasattr(self, 'subtrees'):
                         for subtree in self.subtrees:
@@ -372,7 +369,6 @@ class System:
         if type(self.dt) == int:
             bar = progressbar.ProgressBar()
             for time in bar(range(0, self.max_t, self.dt)):
-                #print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
                 self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
         elif type(self.dt) == float:
             img_num = 0
@@ -411,11 +407,14 @@ class System:
         draw.rectangle(np.append(corner_1, corner_2).tolist(), outline=(0,255,0))
 
 
+        #self.masterTree.get_force(body)
+        #body.update(self.dt)
+
     def update(self, filename):
         """
 
         """
-        time.sleep(5)
+        global num_cores
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
         canvas2 = Image.new("RGB", (self.im_width, self.im_width))
@@ -428,11 +427,15 @@ class System:
                 draw2.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
             except TypeError:
                 pass
+        #print('entering parallel job')
+        #Parallel(n_jobs=num_cores)(delayed(self.masterTree.get_force)(body) for body in self.masterTree.bodies)
+        #Parallel(n_jobs=num_cores)(delayed(body.update)(self.dt) for body in self.masterTree.bodies)
+        #print('exiting parallel job')
         for body in self.masterTree.bodies:
-            #print(self.masterTree.bodies)
-            #print(self.space.contains(body.pos))
             self.masterTree.get_force(body)
+        for body in self.masterTree.bodies:
             body.update(self.dt)
+            body.reset()
         self.draw_boxes(self.masterTree, draw)
         canvas.save("boxed_"+filename, format="PNG")
         canvas2.save(filename, format="PNG")
@@ -470,6 +473,7 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
             subprocess.run(["rm", "-rf", filename+"/"])
             os.mkdir(filename)
         else:
+            os.chdir(home_dir)
             return
     os.chdir(filename)
     corners = [ np.array([radius, radius]), np.array([-radius, radius]), np.array([-radius, -radius]), np.array([radius, -radius]) ]
@@ -498,7 +502,7 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
         "-pix_fmt", "yuv420p", # input pixel format
         "boxed_"+filename + ".mp4"
     ]
-    subprocess.run(write_command2)
+    subprocess.run(write_command_2)
     os.chdir(home_dir)
 
     #Current issues: self.body.mass for the system is broken.
