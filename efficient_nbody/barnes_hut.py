@@ -370,7 +370,7 @@ class System:
         bar = progressbar.ProgressBar()
         for time in bar(range(0, self.max_t, self.dt)):
             #print("\ntimestep:", time/self.dt, "of", self.max_t/self.dt)
-            self.update('img{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
+            self.update('{:0>8}'.format( str( int(time/self.dt) ) ) + ".png" )
 
     def to_pixel(self, pos, width, sidelength):
         """
@@ -406,19 +406,11 @@ class System:
         """
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
-        #bar = progressbar.ProgressBar()
-        body_list = self.masterTree.bodies
-        #for mass in self.masterTree.bodies:
-        #    body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
-        #    body_list.append(body)
-        #    try:
-        #        draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength ), fill = body.RGB_tuple )
-        #    except TypeError:
-        #        pass
-        self.masterTree = Quadtree(self.space, body_list)
+        self.masterTree = Quadtree(self.space, self.masterTree.bodies)
         for body in self.masterTree.bodies:
             self.masterTree.insert(body)
             try:
+                print("drew?")
                 draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
             except TypeError:
                 pass
@@ -471,7 +463,7 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
         "-r", "60", # set fps to 60
         "-f", "image2", # input format (is this necessary?)
         "-s", str(im_width) + "x" + str(im_width), # set output resolution
-        "-i", "img%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
+        "-i", "%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
         "-vcodec", "libx264",
         "-crf", "25", # rate factor.  Sets output quality/speed. 18-25 good.
         "-pix_fmt", "yuv420p", # input pixel format
