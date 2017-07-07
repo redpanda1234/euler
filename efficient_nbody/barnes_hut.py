@@ -372,6 +372,8 @@ class System:
         for body in self.masterTree.bodies:
             self.masterTree.insert(body)
 
+        print("Initial tree constructed.  Beginning simulation")
+
     def start(self):
         if type(self.dt) == int:
             bar = progressbar.ProgressBar()
@@ -422,9 +424,9 @@ class System:
         draw = ImageDraw.Draw(canvas)
         canvas2 = Image.new("RGB", (self.im_width, self.im_width))
         draw2 = ImageDraw.Draw(canvas2)
-        #for body in self.masterTree.bodies:
+        for body in self.masterTree.bodies:
             #print(body)
-            #self.masterTree.insert(body)
+            self.masterTree.insert(body)
         #print('entering parallel job')
         #Parallel(n_jobs=num_cores)(delayed(self.masterTree.get_force)(body) for body in self.masterTree.bodies)
         #Parallel(n_jobs=num_cores)(delayed(body.update)(self.dt) for body in self.masterTree.bodies)
@@ -538,6 +540,7 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
         mass[2][0] -= vel
         mass[1][0] -= CoM
     #print(vel)
+    print("data ingested successfully")
     simulation = System(max_t, dt, corners, m_list, im_width = im_width)
     simulation.start()
     write_command = [
