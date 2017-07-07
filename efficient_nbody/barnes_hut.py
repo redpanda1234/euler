@@ -192,8 +192,9 @@ class Body:
         This method uses Euler's method to update position and velocity
         of the body over a small time interval dt
         """
-
+        #print(dt*self.frc/self.mass)
         self.vel += dt * self.frc / self.mass # leapfrog finite diff
+        #print(self.vel*dt)
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
@@ -223,8 +224,8 @@ class Body:
         pos_array = np.append(self.pos_array, other_body.pos_array, axis=0)
         #print(m_array, pos_array)
         vel_array = (self.vel*self.mass + other_body.vel*other_body.mass)/(self.mass+other_body.mass)
-
-        return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array, f_array = np.array([0.,0.]))
+        f_array = self.frc + other_body.frc
+        return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array, f_array = f_array)
 
     def reset(self):
         """
@@ -304,20 +305,6 @@ class Quadtree:
             self.body = self.body.sum(body)
         except AttributeError:
             self.body = body
-
-    def check_bodies(self):
-        """
-        """
-        for i in range( len( self.bodies ) - 1 ):
-            for j in range( i+1, len( self.bodies ) + 1 ):
-                try:
-                    if np.array_equal(self.bodies[i].pos, self.bodies[j].pos):
-                        self.bodies[i] = self.bodies[i].sum(self.bodies[j])
-                        self.bodies = self.bodies[:j] + self.bodies[j+1:]
-                        j -= 1
-                except IndexError:
-                    pass
-
 
     def isFar(self, body):
         """
@@ -449,27 +436,28 @@ class System:
         for body in self.masterTree.bodies:
             self.masterTree.get_force(body)
             #body_ids += [id(body)]
-        momentum = np.array([0.,0.])
-        CoM = np.array([0.,0.])
-        tot_mass = 0.
+        #momentum = np.array([0.,0.])
+        #CoM = np.array([0.,0.])
+        #tot_mass = 0.
         for body in self.masterTree.bodies:
             body.update(self.dt)
+            #print(body.frc)
             body.reset()
-            momentum += body.mass*body.vel
-            CoM += (body.mass*body.pos)
-            tot_mass += body.mass
+            #momentum += body.mass*body.vel
+            #CoM += (body.mass*body.pos)
+            #tot_mass += body.mass
         #print(momentum)
-        CoM_vel = momentum / tot_mass
-        CoM_pos = CoM / tot_mass
+        #CoM_vel = momentum / tot_mass
+        #CoM_pos = CoM / tot_mass
         #other_id_list = []
         for body in self.masterTree.bodies:
             #print(body)
             #print(id(body))
-            body.vel = body.vel - CoM_vel
+            #body.vel = body.vel - CoM_vel
             #print(id(body))
             #print(body.vel, CoM_vel)
             #print(body.pos, CoM)
-            body.pos = body.pos - CoM_pos
+            #body.pos = body.pos - CoM_pos
             #other_id_list += [id(body)]
             #print(body)
             try:
@@ -512,13 +500,13 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
     if not os.path.exists(filename):
         os.mkdir(filename)
     else:
-        delete = input("dir \"./tests/" + str(filename) + "/\" already exists.  Remove it? Enter yes to confirm, name to choose another name, and any other character to cancel.")
+        delete = input("dir \"./tests/" + str(filename) + "/\" already exists.  Remove it? Enter yes to confirm, name to choose another name, and any other character to cancel.\n")
         if delete == "yes":
             subprocess.run(["rm", "-rf", filename+"/"])
             os.mkdir(filename)
         elif delete == "name":
             while True:
-                filename = input("choose a new name")
+                filename = input("choose a new name\n")
                 try:
                     os.mkdir(filename)
                     break
