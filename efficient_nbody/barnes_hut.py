@@ -238,8 +238,12 @@ class Quadtree:
         self.SE = self.region.get_SE()
 
         self.bodies = bodies
+
         if bodies:
             self.body = bodies[0]
+            for other_body in bodies[1:]:
+                self.body = self.body.sum(other_body)
+
         self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
         self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
         self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
