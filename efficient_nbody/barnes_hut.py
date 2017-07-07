@@ -18,9 +18,10 @@ from PIL import Image, ImageDraw
 
 # get numpy to actually throw errors, instead of just printing them.
 np.seterr(all='raise')
+np.set_printoptions(precision=30)
 
 # threshold s/d value for determining whether to recurse into tree
-theta = 0.5
+theta = 0
 
 # because I'm dumb
 sys.setrecursionlimit(500)
@@ -37,7 +38,7 @@ class BoundRegion:
         # define the corners
         self.NE_corner, self.NW_corner, self.SW_corner, self.SE_corner = corners
 
-        # define the midpoints of the sides
+        # define the midpoints of the sides for use getting sub-quadrants
         self.N = .5 * (self.NE_corner + self.NW_corner)
         self.W = .5 * (self.NW_corner + self.SW_corner)
         self.S = .5 * (self.SW_corner + self.SE_corner)
@@ -102,11 +103,22 @@ class Body:
     Class body.  Can either be a single particle or correspond to a collection
     of particles clustered as a single object (for reference as nodes by the
     tree structure)
+
+    m_array should be a 1xn array of mass values.  Datatype should be float.
+
+    pos_array should be a 2xn array of position vectors.  Datatype should be float.
+    Format should be [ [ x1, y1], [x2, y2], ..., [xn, yn] ]
+
+    v_array should be a 1x2 array describing the velocity of the center of mass
+    of the body.  Datatype should be float.  Format is [x,y]
+
+    f_array should be a 1x2 array describing the force on the Body.  Datatype
+    should be float.  Format should be [x,y]
     """
     def __init__(
             self,
-            m_array = np.array([0]),
-            pos_array = np.array([[0,0]]),
+            m_array = np.array([0.]),
+            pos_array = np.array([[0.,0.]]),
             v_array = np.array([0.,0.]),
             f_array = np.array([0.,0.]),
             sub_bodies = [],
@@ -122,22 +134,25 @@ class Body:
         self.m_array = m_array # store discrete masses as an attribute in array
         self.pos_array = pos_array # similarly with positions
 
-        self.sub_bodies = sub_bodies
-        if self.sub_bodies:
-            self.vel = v_array
+        self.sub_bodies = sub_bodies # store references to sub-bodies
+        if self.sub_bodies: # if there are any sub-bodies...
+            self.vel = v_array # then the velocity should be stored as a large array
         else:
-            self.vel = v_array[0]
+            self.vel = v_array[0] # else extract the velocity from the nested array
         self.frc = f_array
 
         self.mass = self.get_mass()
         if self.mass != 0:
             self.pos = self.get_CoM() # define position as center of mass
         else:
-            self.pos = np.array([0,0])
+            self.pos = np.array([0.,0.]) # else define it as at the origin
 
         self.RGB_tuple = RGB_tuple
 
     def __repr__(self):
+        """
+        for debugging
+        """
         str_out = "\n"
         str_out += "Mass array:" + str( self.m_array ) + "\n"
         str_out += "Position array:" + str( self.pos_array ) + "\n"
@@ -200,8 +215,12 @@ class Body:
         This method merges the calling body and other_body into
         a single object of type body, and returns it.
         """
+        if self == other_body:
+            return self
         m_array = np.append(self.m_array, other_body.m_array)
+        #print(self.pos_array, other_body.pos_array)
         pos_array = np.append(self.pos_array, other_body.pos_array, axis=0)
+        #print(m_array, pos_array)
         vel_array = (self.vel*self.mass + other_body.vel*other_body.mass)/(self.mass+other_body.mass)
 
         return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array)
@@ -406,44 +425,60 @@ class System:
         corner_2 = self.to_pixel(tree.region.SE_corner, self.im_width, self.space.sidelength)
         draw.rectangle(np.append(corner_1, corner_2).tolist(), outline=(0,255,0))
 
-
-        #self.masterTree.get_force(body)
-        #body.update(self.dt)
-
     def update(self, filename):
         """
 
         """
-        global num_cores
+        # global num_cores
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
         canvas2 = Image.new("RGB", (self.im_width, self.im_width))
         draw2 = ImageDraw.Draw(canvas2)
-        self.masterTree = Quadtree(self.space, self.masterTree.bodies)
-        for body in self.masterTree.bodies:
-            self.masterTree.insert(body)
-            try:
-                draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
-                draw2.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
-            except TypeError:
-                pass
+        #for body in self.masterTree.bodies:
+            #print(body)
+            #self.masterTree.insert(body)
         #print('entering parallel job')
         #Parallel(n_jobs=num_cores)(delayed(self.masterTree.get_force)(body) for body in self.masterTree.bodies)
         #Parallel(n_jobs=num_cores)(delayed(body.update)(self.dt) for body in self.masterTree.bodies)
+        #pool = multiprocessing.Pool(processes = 4)
+        #test = pool.map(self.masterTree.get_force, self.masterTree.bodies)
+        #print(test)
         #print('exiting parallel job')
-        for body in self.masterTree.bodies:
-            self.masterTree.get_force(body)
+        #body_ids = []
+        #for body in self.masterTree.bodies:
+            #self.masterTree.get_force(body)
+            #body_ids += [id(body)]
         momentum = np.array([0.,0.])
+        CoM = np.array([0.,0.])
         tot_mass = 0.
         for body in self.masterTree.bodies:
             body.update(self.dt)
             body.reset()
             momentum += body.mass*body.vel
+            CoM += (body.mass*body.pos)
             tot_mass += body.mass
-        CoM_vel = momentum/tot_mass
+        #print(momentum)
+        CoM_vel = momentum / tot_mass
+        CoM_pos = CoM / tot_mass
+        #other_id_list = []
         for body in self.masterTree.bodies:
-            body.vel -= CoM_vel
-        #print("CoM vel is", momentum/tot_mass)
+            #print(body)
+            #print(id(body))
+            body.vel = body.vel - CoM_vel
+            #print(id(body))
+            #print(body.vel, CoM_vel)
+            #print(body.pos, CoM)
+            body.pos = body.pos - CoM_pos
+            #other_id_list += [id(body)]
+            #print(body)
+            try:
+                draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
+                draw2.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
+            except TypeError:
+                pass
+        #confirm_list = [(id1, id2) for id1, id2 in zip(body_ids, other_id_list) if id1 != id2]
+        #print(confirm_list)
+        self.masterTree = Quadtree(self.space, self.masterTree.bodies)
         self.draw_boxes(self.masterTree, draw)
         canvas.save("boxed_"+filename, format="PNG")
         canvas2.save(filename, format="PNG")
@@ -481,8 +516,21 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
             subprocess.run(["rm", "-rf", filename+"/"])
             os.mkdir(filename)
         elif delete == "name":
-            filename = input("choose a new name")
-            os.mkdir(filename)
+            while True:
+                filename = input("choose a new name")
+                try:
+                    os.mkdir(filename)
+                    break
+                except FileExistsError:
+                    delete = input("dir already exists.  Remove it?  Enter yes to confirm, name to choose another name, and any other character to cancel.\n")
+                    if delete == "yes":
+                        subprocess.run(["rm", "-rf", filename+"/"])
+                        os.mkdir(filename)
+                        break
+                    elif delete == "name":
+                        pass
+                    else:
+                        break
         else:
             os.chdir(home_dir)
             return
@@ -490,13 +538,17 @@ def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
     corners = [ np.array([radius, radius]), np.array([-radius, radius]), np.array([-radius, -radius]), np.array([radius, -radius]) ]
     tot_mass = 0
     momentum = np.array([0.,0.])
+    CoM = np.array([0.,0.])
     for mass in m_list:
         tot_mass += mass[0][0]
         momentum += mass[0][0]*mass[2][0]
+        CoM += mass[0][0]*mass[1][0]
     vel = momentum/tot_mass
+    CoM /= tot_mass
     for mass in m_list:
         mass[2][0] -= vel
-    print(vel)
+        mass[1][0] -= CoM
+    #print(vel)
     simulation = System(max_t, dt, corners, m_list, im_width = im_width)
     simulation.start()
     write_command = [

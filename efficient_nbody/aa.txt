@@ -1,0 +1,1 @@
+ffmpeg -r 60 -f image2 -s 2000x2000 -i boxed_%08d.png -vcodec libx264 -crf 18 -pix_fmt yuv420p test.mp4
