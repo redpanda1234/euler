@@ -21,7 +21,7 @@ np.seterr(all='raise')
 np.set_printoptions(precision=30)
 
 # threshold s/d value for determining whether to recurse into tree
-theta = 0
+theta = .5
 
 # because I'm dumb
 sys.setrecursionlimit(500)
@@ -201,7 +201,8 @@ class Body:
         This method returns a tuple of the displacement in x and y between
         the calling body (self) and the second body (other_body)
         """
-        return np.array([self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1]])
+        #return np.array([self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1]])
+        return np.array([other_body.pos[0]-self.pos[0], other_body.pos[1]-self.pos[1]])
 
     def in_region(self, region):
         """
@@ -223,7 +224,7 @@ class Body:
         #print(m_array, pos_array)
         vel_array = (self.vel*self.mass + other_body.vel*other_body.mass)/(self.mass+other_body.mass)
 
-        return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array)
+        return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array, f_array = np.array([0.,0.]))
 
     def reset(self):
         """
@@ -377,7 +378,7 @@ class System:
 
         body_list = []
         for mass in self.m_list:
-            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), RGB_tuple = mass[3])
+            body = Body(m_array = np.array(mass[0]), pos_array = np.array(mass[1]), v_array = np.array(mass[2]), f_array = np.array([0.,0.]), RGB_tuple = mass[3])
             body_list.append(body)
 
         self.masterTree = Quadtree(self.space, body_list)
@@ -445,8 +446,8 @@ class System:
         #print(test)
         #print('exiting parallel job')
         #body_ids = []
-        #for body in self.masterTree.bodies:
-            #self.masterTree.get_force(body)
+        for body in self.masterTree.bodies:
+            self.masterTree.get_force(body)
             #body_ids += [id(body)]
         momentum = np.array([0.,0.])
         CoM = np.array([0.,0.])
