@@ -214,9 +214,7 @@ class Body:
         if self == other_body:
             return self
         m_array = np.append(self.m_array, other_body.m_array)
-        #print(self.pos_array, other_body.pos_array)
         pos_array = np.append(self.pos_array, other_body.pos_array, axis=0)
-        #print(m_array, pos_array)
         vel_array = (self.vel*self.mass + other_body.vel*other_body.mass)/(self.mass+other_body.mass)
         f_array = self.frc + other_body.frc
         return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array, f_array = f_array)
@@ -232,58 +230,36 @@ class Quadtree:
         """
         self.region = region # store reference to region in node
 
-        self.NE = self.region.get_NE() # recursively get subregions
-        self.NW = self.region.get_NW()
-        self.SW = self.region.get_SW()
-        self.SE = self.region.get_SE()
-
         self.bodies = bodies
 
         if bodies:
             self.body = bodies[0]
+
+        if len(self.bodies) > 1:
+
             for other_body in bodies[1:]:
                 self.body = self.body.sum(other_body)
 
-        self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
-        self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
-        self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
-        self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
+            self.NE = self.region.get_NE() # recursively get subregions
+            self.NW = self.region.get_NW()
+            self.SW = self.region.get_SW()
+            self.SE = self.region.get_SE()
 
-        if len(self.bodies) > 1:
+            self.NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
+            self.NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
+            self.SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
+            self.SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
+
             self.subtrees = [
                 Quadtree(self.NE, self.NE_bodies),
                 Quadtree(self.NW, self.NW_bodies),
                 Quadtree(self.SW, self.SW_bodies),
                 Quadtree(self.SE, self.SE_bodies)
             ]
+
         else:
             self.subtrees = []
 
-    def insert(self, body):
-        """
-        Inserts body into the mass array for the node, and updates the center of
-        mass accordingly.  Regenerates the corresponding subregion tree if
-        necessary
-        """
-        if body not in self.bodies:
-            self.bodies += [body]
-            if len(self.bodies) > 1:
-                if body.in_region(self.NE):
-                    self.BH_NE.insert(body)
-                elif body.in_region(self.NW):
-                    self.BH_NW.insert(body)
-                elif body.in_region(self.SW):
-                    self.BH_SW.insert(body)
-                elif body.in_region(self.SE):
-                    self.BH_SE.insert(body)
-                else:
-                    pass
-            else:
-                self.subtrees = []
-        try:
-            self.body = self.body.sum(body)
-        except AttributeError:
-            self.body = body
 
     def isFar(self, body):
         """
@@ -318,11 +294,32 @@ class Quadtree:
                     numerator = (-6.67 * ( 10** ( -11 ) ) * self.body.mass * body.mass)
                     net_force = numerator / (distance**2)
                     body.frc += np.array([net_force * distance_array[0]/distance, net_force * distance_array[1]/distance])
-
                 else:
                     if hasattr(self, 'subtrees'):
                         for subtree in self.subtrees:
                             subtree.get_force(body)
+
+    def update(self):
+        """
+
+        """
+        NE_bodies = [body for body in self.bodies if body.in_region(self.NE)]
+        if self.NE_bodies != NE_bodies:
+            self.NE_bodies = NE_bodies
+            self.subtrees[0] = Quadtree(self.NE, NE_bodies)
+        NW_bodies = [body for body in self.bodies if body.in_region(self.NW)]
+        if self.NW_bodies != NW_bodies:
+            self.NW_bodies = NW_bodies
+            self.subtrees[1] = Quadtree(self.NW, NW_bodies)
+        SW_bodies = [body for body in self.bodies if body.in_region(self.SW)]
+        if self.SW_bodies != SW_bodies:
+            self.SW_bodies = SW_bodies
+            self.subtrees[2] = Quadtree(self.SW, SW_bodies)
+        SE_bodies = [body for body in self.bodies if body.in_region(self.SE)]
+        if self.SE_bodies != SE_bodies:
+            self.SE_bodies = SE_bodies
+            self.subtrees[3] = Quadtree(self.SE, SE_bodies)
+
 
 class System:
     """
@@ -348,9 +345,6 @@ class System:
             body_list.append(body)
 
         self.masterTree = Quadtree(self.space, body_list)
-        for body in self.masterTree.bodies:
-            self.masterTree.insert(body)
-
         print("Initial tree constructed.  Beginning simulation")
 
     def start(self):
@@ -402,16 +396,27 @@ class System:
         draw = ImageDraw.Draw(canvas)
         canvas2 = Image.new("RGB", (self.im_width, self.im_width))
         draw2 = ImageDraw.Draw(canvas2)
+        #momentum = np.array([0.,0.])
+        #pre_CoM = np.array([0.,0.])
+        #tot_mass = 0
         for body in self.masterTree.bodies:
             self.masterTree.get_force(body)
+            #tot_mass += body.mass
+            #momentum += body.mass * body.vel
+            #pre_CoM += body.mass * body.pos
+        #vel = momentum / tot_mass
+        #CoM = pre_CoM / tot_mass
         for body in self.masterTree.bodies:
             body.update(self.dt)
-            self.masterTree.insert(body)
+            #body.pos -= CoM
+            #body.vel -= vel
             try:
                 draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
                 draw2.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
             except TypeError:
                 pass
+        self.masterTree.update()
+        #self.masterTree = Quadtree(self.space, self.masterTree.bodies)
         self.draw_boxes(self.masterTree, draw)
         canvas.save("boxed_"+filename, format="PNG")
         canvas2.save(filename, format="PNG")

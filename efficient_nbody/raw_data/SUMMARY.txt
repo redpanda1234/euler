@@ -14,7 +14,7 @@ galaxy10k.txt       10,000 bodies orbiting in an elliptical galaxy.
 galaxy20k.txt       20,000 bodies orbiting in an elliptical galaxy.
 galaxy30k.txt       Two 15,000 particle galaxies collide.
 saturnrings.txt     Saturn with its 9 rings containing 11,987 particles.
-cluster2.5k.txt     A star cluster containing 2,582 particles.
+cluster2582.txt     A star cluster containing 2,582 particles.
 collision1.txt      Two large irregular galaxies collide and mostly pass through each other.
 collision2.txt      Collision of two 1000 particle elliptical galaxies.
 galaxyform2.5k.txt  A 2,500 particle dust cloud collapses under gravity and forms into a galaxy.
