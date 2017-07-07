@@ -189,6 +189,7 @@ class Body:
         """
         self.vel += dt * self.frc / self.mass
         self.pos += dt * self.vel
+        self.frc = np.array([0.,0.])
 
     def distance_to(self, other_body):
         """
@@ -220,20 +221,6 @@ class Body:
         f_array = self.frc + other_body.frc
         return Body(m_array=m_array, pos_array=pos_array, v_array=vel_array, f_array = f_array)
 
-    def reset(self):
-        """
-        resets the force array to 0 so that forces don't pile up over
-        timesteps.
-        """
-        self.frc = np.array([0.,0.])
-
-    def draw(self, draw):
-        """
-        ToDo
-        """
-        pass
-
-
 class Quadtree:
 
     def __init__(self, region, bodies, empty=False):
@@ -244,6 +231,7 @@ class Quadtree:
         contains either 0 or 1 bodies.
         """
         self.region = region # store reference to region in node
+
         self.NE = self.region.get_NE() # recursively get subregions
         self.NW = self.region.get_NW()
         self.SW = self.region.get_SW()
@@ -277,23 +265,17 @@ class Quadtree:
             self.bodies += [body]
             if len(self.bodies) > 1:
                 if body.in_region(self.NE):
-                    self.NE_bodies += [body]
-                    self.BH_NE = Quadtree(self.NE, self.NE_bodies)
-                    self.subtrees[0] = self.BH_NE
+                    self.BH_NE.insert(body)
                 elif body.in_region(self.NW):
-                    self.NW_bodies += [body]
-                    self.BH_NW = Quadtree(self.NW, self.NW_bodies)
-                    self.subtrees[1] = self.BH_NW
+                    self.BH_NW.insert(body)
                 elif body.in_region(self.SW):
-                    self.SW_bodies += [body]
-                    self.BH_SW = Quadtree(self.SW, self.SW_bodies)
-                    self.subtrees[2] = self.BH_SW
+                    self.BH_SW.insert(body)
                 elif body.in_region(self.SE):
-                    self.SE_bodies += [body]
-                    self.BH_SE = Quadtree(self.SE, self.SE_bodies)
-                    self.subtrees[3] = self.BH_SE
+                    self.BH_SE.insert(body)
                 else:
                     pass
+            else:
+                self.subtrees = []
         try:
             self.body = self.body.sum(body)
         except AttributeError:
@@ -412,58 +394,20 @@ class System:
         """
 
         """
-        # global num_cores
         canvas = Image.new("RGB", (self.im_width, self.im_width))
         draw = ImageDraw.Draw(canvas)
         canvas2 = Image.new("RGB", (self.im_width, self.im_width))
         draw2 = ImageDraw.Draw(canvas2)
         for body in self.masterTree.bodies:
-            #print(body)
-            self.masterTree.insert(body)
-        #print('entering parallel job')
-        #Parallel(n_jobs=num_cores)(delayed(self.masterTree.get_force)(body) for body in self.masterTree.bodies)
-        #Parallel(n_jobs=num_cores)(delayed(body.update)(self.dt) for body in self.masterTree.bodies)
-        #pool = multiprocessing.Pool(processes = 4)
-        #test = pool.map(self.masterTree.get_force, self.masterTree.bodies)
-        #print(test)
-        #print('exiting parallel job')
-        #body_ids = []
-        for body in self.masterTree.bodies:
             self.masterTree.get_force(body)
-            #body_ids += [id(body)]
-        #momentum = np.array([0.,0.])
-        #CoM = np.array([0.,0.])
-        #tot_mass = 0.
         for body in self.masterTree.bodies:
             body.update(self.dt)
-            #print(body.frc)
-            #print(body.pos)
-            body.reset()
-            #momentum += body.mass*body.vel
-            #CoM += (body.mass*body.pos)
-            #tot_mass += body.mass
-        #print(momentum)
-        #CoM_vel = momentum / tot_mass
-        #CoM_pos = CoM / tot_mass
-        #other_id_list = []
-        for body in self.masterTree.bodies:
-            #print(body)
-            #print(id(body))
-            #body.vel = body.vel - CoM_vel
-            #print(id(body))
-            #print(body.vel, CoM_vel)
-            #print(body.pos, CoM)
-            #body.pos = body.pos - CoM_pos
-            #other_id_list += [id(body)]
-            #print(body)
+            self.masterTree.insert(body)
             try:
                 draw.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
                 draw2.point( self.to_pixel( body.pos, self.im_width, self.space.sidelength), fill = body.RGB_tuple)
             except TypeError:
                 pass
-        #confirm_list = [(id1, id2) for id1, id2 in zip(body_ids, other_id_list) if id1 != id2]
-        #print(confirm_list)
-        self.masterTree = Quadtree(self.space, self.masterTree.bodies)
         self.draw_boxes(self.masterTree, draw)
         canvas.save("boxed_"+filename, format="PNG")
         canvas2.save(filename, format="PNG")
@@ -539,7 +483,7 @@ def wrapper(filename, max_t = 100, dt = .1, im_width = 2000):
     simulation.start()
     write_command = [
         "ffmpeg", # use ffmpeg to convert output images to vide
-        "-r", "60", # set fps to 60
+        "-r", "30", # set fps to 60
         "-f", "image2", # input format (is this necessary?)
         "-s", str(im_width) + "x" + str(im_width), # set output resolution
         "-i", "%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
@@ -551,7 +495,7 @@ def wrapper(filename, max_t = 100, dt = .1, im_width = 2000):
     subprocess.run(write_command)
     write_command_2 = [
         "ffmpeg", # use ffmpeg to convert output images to vide
-        "-r", "60", # set fps to 60
+        "-r", "30", # set fps to 60
         "-f", "image2", # input format (is this necessary?)
         "-s", str(im_width) + "x" + str(im_width), # set output resolution
         "-i", "boxed_%08d.png", # how to find the file.  %08d.png tells ffmpeg the string will be padded w/ 8 zeros
