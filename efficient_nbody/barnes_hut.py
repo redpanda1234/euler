@@ -91,13 +91,6 @@ class BoundRegion:
         """
         return BoundRegion( ( ( self.E, self.center, self.S, self.SE_corner ) ) )
 
-    def draw(self, canvas):
-        """
-        ToDo
-        """
-
-        pass
-
 class Body:
     """
     Class body.  Can either be a single particle or correspond to a collection
@@ -119,7 +112,7 @@ class Body:
             self,
             m_array = np.array([0.]),
             pos_array = np.array([[0.,0.]]),
-            v_array = np.array([0.,0.]),
+            v_array = np.array([[0.,0.]]),
             f_array = np.array([0.,0.]),
             sub_bodies = [],
             RGB_tuple = (245,245,245)
@@ -141,7 +134,11 @@ class Body:
             self.vel = v_array[0] # else extract the velocity from the nested array
         self.frc = f_array
 
-        self.mass = self.get_mass()
+        total_mass = 0
+        for mass in self.m_array:
+            total_mass += mass
+        self.mass = total_mass
+
         if self.mass != 0:
             self.pos = self.get_CoM() # define position as center of mass
         else:
@@ -168,9 +165,7 @@ class Body:
         This method iterates through all the constituent bodies in Body, and
         returns the total mass.
         """
-        total_mass = 0
-        for mass in self.m_array:
-            total_mass += mass
+
         return total_mass
 
     def get_CoM(self):
@@ -192,9 +187,7 @@ class Body:
         This method uses Euler's method to update position and velocity
         of the body over a small time interval dt
         """
-        #print(dt*self.frc/self.mass)
-        self.vel += dt * self.frc / self.mass # leapfrog finite diff
-        #print(self.vel*dt)
+        self.vel += dt * self.frc / self.mass
         self.pos += dt * self.vel
 
     def distance_to(self, other_body):
@@ -202,8 +195,8 @@ class Body:
         This method returns a tuple of the displacement in x and y between
         the calling body (self) and the second body (other_body)
         """
-        #return np.array([self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1]])
-        return np.array([other_body.pos[0]-self.pos[0], other_body.pos[1]-self.pos[1]])
+        # is the direction flipped?  Who knows?
+        return np.array([self.pos[0]-other_body.pos[0], self.pos[1]-other_body.pos[1]])
 
     def in_region(self, region):
         """
@@ -444,6 +437,7 @@ class System:
         for body in self.masterTree.bodies:
             body.update(self.dt)
             #print(body.frc)
+            #print(body.pos)
             body.reset()
             #momentum += body.mass*body.vel
             #CoM += (body.mass*body.pos)
@@ -474,7 +468,7 @@ class System:
         canvas.save("boxed_"+filename, format="PNG")
         canvas2.save(filename, format="PNG")
 
-def wrapper(filename, max_t = 10000000, dt = 25000, im_width = 2000):
+def wrapper(filename, max_t = 100, dt = .1, im_width = 2000):
     """
     Takes as input a string corresponding to the name of a file in ./rawdata/
     and sets the parameters for the system.
