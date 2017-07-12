@@ -3,3 +3,9 @@
 *\#*
 */tests/
 *.pyc
+*.log
+*.aux
+*.nav
+*.out
+*.toc
+*.pdf

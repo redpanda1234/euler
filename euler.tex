@@ -1,0 +1,78 @@
+\documentclass{standalone}
+\usepackage{amsmath, amsthm}
+\usepackage{pgfplots}
+\usepackage{tikz}
+\pgfplotsset{every tick label/.append style={font=\footnotesize}}
+
+\begin{document}
+  \begin{tikzpicture}
+    \begin{axis}[
+      % set some appropriate y min and max values
+      xmin = -1,
+      xmax = 2,
+      ymin = -1,
+      samples=101,
+      smooth,
+      axis lines=middle,
+      % we don't need any x ticks
+      xtick={0.25, .5, .75, 1, 1.25, 1.5, 1.75, 2},
+      xticklabels = {\hspace*{-1.5em}$\Delta_0$, \hspace*{-1.5em}$\Delta_1$, \hspace*{-1.5em}$\Delta_2$, \hspace*{-1.5em}$\Delta
+        _3$, \hspace*{-1.5em}$\Delta_4$, \hspace*{-1.5em}$\Delta_5$, \hspace*{-1.5em}$\Delta_6$, \hspace*{-1.5em}$\Delta_7$},
+      ytick=\empty,
+      xlabel=$x$,
+      ylabel=$y$,
+      xticklabel shift = -25pt
+      % move the y label to "the other side" so it is not overlapping
+      % with the plots
+      ylabel style={
+        anchor=north east,
+      }]
+
+      % to filter away the zero value
+      \draw[blue] (axis cs: 0, 1) -- (axis cs: 0.25, 1);
+      %\draw[blue, dashed] (axis cs:0.25,1) -- (axis cs:0.25,0);
+      \draw[densely dotted] (axis cs: 0.25, 1) -- (axis cs: .5, 1);
+      \draw[densely dotted] (axis cs: 0.5, 1) -- (axis cs: .5, 1.125);
+
+      \draw[blue] (axis cs: 0.25, 1) -- (axis cs: .5, 1.125);
+      %\draw[blue, dashed] (axis cs: .5, 1.125) -- (axis cs: .5, 0);
+      \draw[densely dotted] (axis cs: 0.5, 1.125) -- (axis cs: .75, 1.125);
+      \draw[densely dotted] (axis cs: 0.25, 1) -- (axis cs: .5, 1);
+
+      \draw[blue] (axis cs: .5, 1.125) -- (axis cs: .75, 1.375);
+      %\draw[blue, dashed] (axis cs: .75, 1.375) -- (axis cs: .75, 0);
+      \draw[densely dotted] (axis cs: 0.75, 1.125) -- (axis cs: .75, 1.375);
+      \draw[densely dotted] (axis cs: 0.5, 1.125) -- (axis cs: .75, 1.125);
+
+
+      \draw[blue] (axis cs: .75, 1.375 ) -- (axis cs: 1, 1.75);
+      %\draw[blue, dashed] (axis cs: 1, 1.75) -- (axis cs: 1, 0);
+      \draw[densely dotted] (axis cs: 0.75, 1.375) -- (axis cs: 1, 1.375);
+      \draw[densely dotted] (axis cs: 1, 1.375) -- (axis cs: 1, 1.75);
+
+
+      \draw[blue] (axis cs: 1, 1.75) -- (axis cs: 1.25, 2.25);
+      %\draw[blue, dashed] (axis cs: 1.25, 2.25) -- (axis cs: 1.25,0);
+      \draw[densely dotted] (axis cs: 1, 1.75) -- (axis cs: 1.25, 1.75);
+      \draw[densely dotted] (axis cs: 1.25, 1.75) -- (axis cs: 1.25, 2.25);
+
+      \draw[blue] (axis cs: 1.25, 2.25) -- (axis cs: 1.5, 2.875);
+      %\draw[blue, dashed] (axis cs: 1.5, 2.875) -- (axis cs: 1.5, 0);
+      \draw[densely dotted] (axis cs: 1.25, 2.25) -- (axis cs: 1.5, 2.25);
+      \draw[densely dotted] (axis cs: 1.5, 2.25) -- (axis cs: 1.5, 2.875);
+
+      \draw[blue] (axis cs: 1.5, 2.875) -- (axis cs: 1.75, 3.625);
+      %\draw[blue, dashed] (axis cs: 1.75, 3.625) -- (axis cs: 1.75,0);
+      \draw[densely dotted] (axis cs: 1.5, 2.875) -- (axis cs: 1.75, 2.875);
+      \draw[densely dotted] (axis cs: 1.75, 2.875) -- (axis cs: 1.75, 3.625);
+
+      \draw[blue] (axis cs: 1.75, 3.625) -- (axis cs: 2, 4.5);
+      % \draw[blue, dashed] (axis cs: 2, 4.5) -- (axis cs: 2, 0);
+      \draw[densely dotted] (axis cs: 1.75, 3.625) -- (axis cs: 2, 3.625);
+      \draw[densely dotted] (axis cs: 2, 3.625) -- (axis cs: 2, 4.5);
+
+      \addplot [red] {x^2 + 1};
+
+    \end{axis}
+  \end{tikzpicture}
+\end{document}
