@@ -1,0 +1,18 @@
+\documentclass[tikz, border=5pt]{standalone}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pst-eucl}
+\usepackage{tkz-euclide}
+
+\begin{document}
+  \begin{tikzpicture}
+    \node[draw, circle, fill, inner sep = 1pt,label=below right:{$(1,3)$}] at
+    (1,3) {};
+    \node[draw, circle, fill, inner sep = 1pt,label=below right:{$(2,-1)$}] at
+    (2,-1) {};
+    \node[draw, circle, fill, inner sep = 1pt,label=below left:{$(-1.5,-2)$}] at (-1.5,-2) {};
+    \tkzInit[xmax=4,ymax=4,xmin=-4,ymin=-4];
+    \tkzGrid;
+    \tkzAxeXY;
+  \end{tikzpicture}
+\end{document}
