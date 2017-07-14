@@ -47,6 +47,12 @@ def euler(
     out_array : numpy array, entries are other objects of type numpy
                 array.  Each entry should describe some point (x,y)
                 lying on our curve approximation.
+
+    ------------
+    Example call
+    ------------
+    point_array = euler(50, .25, initial_point=np.array([1.0,0.24]),
+                        derivative_function = math.cos)
     """
     #<some code here>
     return #some array

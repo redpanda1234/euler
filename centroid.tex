@@ -22,12 +22,12 @@
     {};
     %\node[draw, circle, fill, inner sep = 1pt] (first_centroid) at
     %(2.25, 0) {};
-    \draw[dotted] (ab) -- (centroid);
-    \draw[dotted] (bc) -- (centroid);
-    \draw[dotted] (ca) -- (centroid);
-    \draw[dashed] (a) -- (centroid);
-    \draw[dashed] (b) -- (centroid);
-    \draw[dashed] (c) -- (centroid);
+    \draw[dotted] (ab) -- (c);
+    \draw[dotted] (bc) -- (a);
+    \draw[dotted] (ca) -- (b);
+    %\draw[dashed] (a) -- (centroid);
+    %\draw[dashed] (b) -- (centroid);
+    %\draw[dashed] (c) -- (centroid);
     \tkzInit[xmax=4,ymax=4,xmin=-4,ymin=-4];
     \tkzGrid;
     \tkzAxeXY;
