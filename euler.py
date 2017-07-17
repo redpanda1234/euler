@@ -1,10 +1,24 @@
 import numpy as np
 import math
+import matplotlib.cm as cm
+import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 
 def derivative_x_squared(x):
     """Returns the derivative of x^2 (2*x) at the input."""
     return 2*x
+
+def get_com(point_array):
+    total = np.array([0.,0.])
+    for point in point_array:
+        total += point
+    return total/len(point_array)
+
+def lorentz_deriv(coord, sigma=10., beta=8./3, rho=28.0):
+    """Compute the time-derivative of a Lorentz system."""
+    coord = [1,2,3]
+    x, y, z = coord # unpack coordinates
+    return np.array([sigma * (y - x), x * (rho - z) - y, x * y - beta * z])
 
 def euler(
         num_steps,
@@ -60,9 +74,18 @@ def euler(
         initial_point += np.array([step_size, step_size*derivative_function(initial_point[0])])
     return to_write
 
-print(euler(30, .5, initial_point = np.array([1.5,2.0]), derivative_function = lambda x : x**(3/2)))
-print(euler(10, .25, initial_point = np.array([0.,0.]), derivative_function = lambda x : 2*x))
-
-#plt.plot(euler(2,.5, initial_point=np.array([0.,0.])))
-
+#vals = euler(20,.25, initial_point=np.array([0.,0.]))
+#print(vals)
+#x,y = [val[0] for val in vals], [val[1] for val in vals]
+#print(x,y)
+#val2 = np.array([np.array([x, np.sin(x)]) for x in np.linspace(0,np.pi,10000)])
+#print("com of sin is", get_com(val2))
+#plt.plot(x,y, "o")
 #plt.show()
+
+x = np.linspace(0,2*np.pi, 50) # this is similar to range()
+y = np.cos(x)
+y2 = y**2
+plt.plot(x,y,"bo") # creates the plot with blue circle markers
+plt.plot(x,y2,"g^") # same but green triangles pointing upward
+plt.show()

@@ -160,14 +160,6 @@ class Body:
         str_out += "Center of mass of Body:" + str( self.pos )
         return str_out
 
-    def get_mass(self):
-        """
-        This method iterates through all the constituent bodies in Body, and
-        returns the total mass.
-        """
-
-        return total_mass
-
     def get_CoM(self):
         """
         Ok this is really cool: center of mass equation is essentially the
