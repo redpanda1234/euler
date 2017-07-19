@@ -15,7 +15,7 @@ x0 = -15 + 30 * np.random.random((N_trajectories, 3))
 
 # Solve for the trajectories
 x_t = np.array([
-    euler.euler3D( 1000, .004, xi, euler.lorentz_deriv)
+    euler.euler3D( 2000, .002, xi, euler.lorentz_deriv)
     for xi in x0
 ])
 
@@ -63,14 +63,14 @@ def animate(i):
 
         pt.set_data(x[-1:], y[-1:])
         pt.set_3d_properties(z[-1:])
-    ax.view_init(30, .3 * i)
+    ax.view_init(elev=30, azim=.3 * i)
     fig.canvas.draw()
     return lines + pts
 
 # instantiate the animator.
 anim = animation.FuncAnimation(fig, animate, init_func=init,
-                               frames=500, interval=30, blit=True)
-
+                               frames=1000, interval=15, blit=False)
+plt.ioff()
 plt.show()
 #     if writeout:
 #         mywriter = animation.FFMpegWriter(bitrate=4000)                                                                                # you have to install FFMpeg if you want to write out to mp4
