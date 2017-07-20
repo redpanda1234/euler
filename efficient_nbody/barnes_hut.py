@@ -5,15 +5,6 @@ import os
 import subprocess
 import progressbar
 import sys
-
-# for parallel processing
-#from joblib import Parallel, delayed
-#import multiprocessing
-
-# for multithreading
-#num_cores = multiprocessing.cpu_count()
-
-# for drawing out resulting frames
 from PIL import Image, ImageDraw
 
 # get numpy to actually throw errors, instead of just printing them.
