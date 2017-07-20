@@ -1,0 +1,35 @@
+# N-Body data files
+
+## Datafile Format
+
+First line gives N, the number of particles in in the simulation.  The
+second line gives the radius R of the universe: we can assume all
+particles will be bewtween +/- R.  Then, there are N rows, each
+containing 6 elements, delimited by whitespace (horrifying, I
+know---but don't worry.  The wrapper function will handle data
+ingestion).  The first two are the initial x and y positions of the
+bodies, the second two are the initial x and y velocity of the bodies,
+and the last three are entries for RGB tuples for drawing the
+particles in the output file.
+
+## File descriptions
+
+galaxy10k.txt       10,000 bodies orbiting in an elliptical galaxy.
+galaxy20k.txt       20,000 bodies orbiting in an elliptical galaxy.
+galaxy30k.txt       Two 15,000 particle galaxies collide.
+saturnrings.txt     Saturn with its 9 rings containing 11,987 particles.
+cluster2582.txt     A star cluster containing 2,582 particles.
+collision1.txt      Two large irregular galaxies collide and mostly pass through each other.
+collision2.txt      Collision of two 1000 particle elliptical galaxies.
+galaxyform2500.txt  A 2,500 particle dust cloud collapses under gravity and forms into a galaxy.
+galaxymerge1.txt    Two 1,000 particle clouds gravitate together and eventually combine into a galaxy.
+galaxymerge2.txt    Four 1,000 particle clouds gravitate together and combine into a galaxy.
+galaxymerge3.txt    A 900 particle spinning elliptical galaxy collides with a big expanding galaxy and combines with it.
+galaxy1.txt         A lighter galaxy is torn apart by a dense galaxy.
+galaxy2.txt         A galaxy orbits a heavier one and forms a spiral.
+galaxy3.txt         A dense galaxy sucks stars out of a lighter galaxy that orbits it.
+galaxy4.txt         Galaxies orbiting each other.
+spiralgalaxy.txt    A round galaxy becomes a spiral due to two small galaxies that fly by it.
+asteroids1000.txt   Near earth asteroids and the earth in orbit around the sun.
+
+Credits: all data files were pulled from [here](ftp://ftp.cs.princeton.edu/pub/cs126/barnes-hut/)
