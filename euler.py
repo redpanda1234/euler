@@ -99,27 +99,28 @@ def euler3D(
                 cost of accuracy.
 
     initial_point : numpy array, describes the initial condition.
-                    Order is (x,y).  Defaults to np.array([0.,0.]).
+                    Order is (x,y,z).  Defaults to np.array([0.,0.,0.])
                     Datatype stored in the array should be float.
 
     derivative_function : function, calculates the derivative of the
                           mathematical function we're integrating.
                           Should take inputs either of type int or type
-                          float. Defaults to derivative_x_squared,
-                          which returns 2*x.
+                          float. Defaults to the lorenz system, which
+                          takes as input an array of three floats
+                          and returns an array of the same shape.
 
     -------
     Returns
     -------
     out_array : numpy array, entries are other objects of type numpy
-                array.  Each entry should describe some point (x,y)
+                array.  Each entry should describe some point (x,y,z)
                 lying on our curve approximation.
 
     ------------
     Example call
     ------------
-    point_array = euler(50, .25, initial_point=np.array([1.0,0.24]),
-                        derivative_function = math.cos)
+    point_array = euler(50, .25, initial_point=np.array([1.0,0.24,-0.5]),
+                        derivative_function = lorenz_deriv)
     """
     to_write = np.zeros((num_steps, 3))
     for n in range(num_steps):
