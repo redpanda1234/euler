@@ -7,11 +7,11 @@ import progressbar
 import sys
 
 # for parallel processing
-from joblib import Parallel, delayed
-import multiprocessing
+#from joblib import Parallel, delayed
+#import multiprocessing
 
 # for multithreading
-num_cores = multiprocessing.cpu_count()
+#num_cores = multiprocessing.cpu_count()
 
 # for drawing out resulting frames
 from PIL import Image, ImageDraw
