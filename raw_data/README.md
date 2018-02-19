@@ -44,4 +44,4 @@ particles in the output file.
 + asteroids1000.txt   Near earth asteroids and the earth in orbit
   around the sun.
 
-Credits: all data files were pulled from [here](ftp://ftp.cs.princeton.edu/pub/cs126/barnes-hut/)
+Credits: all data files were pulled from [here](ftp://ftp.cs.princeton.edu/pub/cs126/barnes-hut/). In case that link doesn't work, here is a copyable one: `ftp://ftp.cs.princeton.edu/pub/cs126/barnes-hut/`
