@@ -1,3 +1,6 @@
+# Almost all of this was written by Jake Vanderplas, here: https://jakevdp.github.io/blog/2013/02/16/animating-the-lorentz-system-in-3d/
+
+
 import numpy as np
 
 from matplotlib import pyplot as plt
@@ -28,10 +31,8 @@ ax.axis('off')
 colors = plt.cm.jet(np.linspace(0, 1, N_trajectories))
 
 # set up lines and points
-lines = sum([ax.plot([], [], [], '-', c=c)
-             for c in colors], [])
-pts = sum([ax.plot([], [], [], 'o', c=c)
-           for c in colors], [])
+lines = sum([ax.plot([], [], [], '-', c=c) for c in colors], [])
+pts = sum([ax.plot([], [], [], 'o', c=c) for c in colors], [])
 
 # prepare the axes limits
 ax.set_xlim((-25, 25))
@@ -67,7 +68,7 @@ def animate(i):
     fig.canvas.draw()
     return lines + pts
 
-# instantiate the animator.
+# instantiate the animator
 anim = animation.FuncAnimation(fig, animate, init_func=init,
                                frames=1000, interval=15, blit=False)
 plt.ioff()
