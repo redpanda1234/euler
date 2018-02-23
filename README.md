@@ -5,10 +5,12 @@ integration tools.  The first, efficient\_nbody, is a Python-based
 barnes-hut simulator, which uses a tree-based approximation scheme
 (described [here](http://www.cs.princeton.edu/courses/archive/fall03/cs126/assignments/barnes-hut.html)) to try and cut the computational complexity of
 the animation.  The second contains starter files + diagrams +
-solutions for a CS 5 extra credit assignment at Harvey Mudd College
-involving using Euler's method to plot the Lorenz Attractor.  If any
-of the instructions below don't work and/o are unclear, please  feel
-free to submit an issue report [here](https://github.com/ScriptingBeyondCS/euler/issues) (it would help me out a lot).
+solutions for a CS 5 extra credit assignment I wrote involving using
+Euler's method to plot the Lorenz Attractor.  If any of the
+instructions below don't work and/o are unclear, please  feel free to
+submit an issue
+report [here](https://github.com/ScriptingBeyondCS/euler/issues) (it
+would help me out a lot).
 
 ## Dependencies
 
